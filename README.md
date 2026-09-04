@@ -86,23 +86,53 @@ header. You may edit that block before installing, but use the configuration men
 settings you want to keep: an update replaces edited defaults while preserving saved
 settings.
 
+The public Plex script is the exception when you add a self-hosted Plex Web address:
+an edited `@match` rule is source code, so an official update would replace that
+customization. Use one of the options below.
+
 ## Using a self-hosted Plex Web address
 
 The public Plex download runs on `https://app.plex.tv/*`. A userscript manager decides
 where a script can run before its settings page opens, so adding a Plex server URL in
 the dialog cannot enable another web address.
 
-To use your own Plex Web address, download
-[plex.user.js](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/plex.user.js),
-add this line near the other `@match` lines before installing it, and use the exact
-address from your browser:
+### Quick one-time setup
+
+You do not need to build the project or edit minified application code. Install the
+public [Plex → Sonarr script](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/plex.user.js),
+then open that script’s code editor in Violentmonkey or Tampermonkey. At the very top
+of the file, inside the readable `UserScript` header, add one exact line:
 
 ```javascript
 // @match https://plex.example.com/*
 ```
 
-You will need to reapply that one-line change after an automatic update, or turn off
-automatic updates for that customized copy.
+Save the script, then turn off automatic updates for that customized Plex copy. This
+is the simplest option for one host. A separate unminified release would not improve
+this workflow: the header is already readable, and an update would still replace a
+hand-edited rule.
+
+### Personal Plex release with automatic updates
+
+For a self-hosted Plex Web address that should continue receiving updates, create a
+fork of this repository and use its included **Publish personal Plex userscript**
+workflow:
+
+1. Open the **Actions** tab in your fork and enable workflows if GitHub asks.
+2. Select **Publish personal Plex userscript**, choose **Run workflow**, and enter
+   one or more comma-separated Plex Web origins, such as
+   `https://plex.example.com`.
+3. When it completes, install this script from your fork, replacing the placeholders:
+
+   ```text
+   https://github.com/<fork-owner>/<fork-repository>/releases/download/personal-plex/plex.user.js
+   ```
+
+The workflow creates a secret-free script with your exact `@match` rules. It updates
+the same `personal-plex` release asset on each run, so your userscript manager can
+update it automatically without losing those rules. To take upstream improvements,
+sync your fork with this repository and run the workflow again. Plex hostnames are
+not credentials; do not put API keys or Plex tokens in the workflow input.
 
 ## Troubleshooting
 
