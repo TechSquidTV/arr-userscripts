@@ -5,6 +5,7 @@ import {
   requestSessionSecrets,
   serviceIconUrls,
   sonarrSecretFields,
+  sonarrServerOptionsLoader,
   sonarrSettingsFields,
   SonarrClient,
   SonarrNotFoundError,
@@ -20,6 +21,7 @@ async function initialize(): Promise<void> {
     defaults: ARR_USERSCRIPTS_IMDB_DEFAULTS,
     fields: sonarrSettingsFields,
     menuCaption: "Configure ARR Userscripts: IMDb Sonarr",
+    serverOptionsLoader: sonarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-sonarr/settings-v1",
     validate: (values) => {
       const config = getSonarrConfig(values, "session-api-key");

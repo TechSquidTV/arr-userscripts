@@ -23,6 +23,16 @@ export interface ArrJsonObject {
   readonly [key: string]: ArrJsonValue;
 }
 
+export interface ArrServerOptions {
+  readonly qualityProfiles: readonly ArrServerOption[];
+  readonly rootFolders: readonly ArrServerOption[];
+}
+
+export interface ArrServerOption {
+  readonly label: string;
+  readonly value: string;
+}
+
 export class ArrApiClient {
   private readonly lookupRequests = new Map<string, Promise<ArrJsonObject>>();
 
@@ -52,25 +62,7 @@ export class ArrApiClient {
     path: string,
     request: { readonly body?: string; readonly method?: "POST" } = {},
   ): Promise<ArrJsonValue> {
-    const response = await gmXmlHttpRequest({
-      ...(request.body === undefined ? {} : { data: request.body }),
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": this.connection.apiKey,
-      },
-      method: request.method ?? "GET",
-      responseType: "text",
-      timeout: 15_000,
-      url: `${this.connection.url}${path}`,
-    });
-
-    if (response.status < 200 || response.status >= 300) {
-      throw new Error(
-        `${this.connection.url} returned ${response.status} ${response.statusText}.`.trim(),
-      );
-    }
-
-    return JSON.parse(response.responseText) as ArrJsonValue;
+    return requestArrJson(this.connection, path, request);
   }
 
   private async requestLookup(term: string): Promise<ArrJsonObject> {
@@ -103,6 +95,95 @@ export function getArrConnectionConfig(options: ArrConnectionOptions): ArrConnec
   }
 }
 
+export async function loadArrServerOptions(
+  connection: ArrConnectionConfig,
+): Promise<ArrServerOptions> {
+  const [rootFoldersResponse, qualityProfilesResponse] = await Promise.all([
+    requestArrJson(connection, "/api/v3/rootfolder"),
+    requestArrJson(connection, "/api/v3/qualityprofile"),
+  ]);
+
+  return {
+    qualityProfiles: parseQualityProfiles(qualityProfilesResponse),
+    rootFolders: parseRootFolders(rootFoldersResponse),
+  };
+}
+
 export function isArrJsonObject(value: ArrJsonValue | undefined): value is ArrJsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+async function requestArrJson(
+  connection: ArrConnectionConfig,
+  path: string,
+  request: { readonly body?: string; readonly method?: "POST" } = {},
+): Promise<ArrJsonValue> {
+  const response = await gmXmlHttpRequest({
+    ...(request.body === undefined ? {} : { data: request.body }),
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": connection.apiKey,
+    },
+    method: request.method ?? "GET",
+    responseType: "text",
+    timeout: 15_000,
+    url: `${connection.url}${path}`,
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`${connection.url} returned ${response.status} ${response.statusText}.`.trim());
+  }
+
+  try {
+    return JSON.parse(response.responseText) as ArrJsonValue;
+  } catch {
+    throw new Error(`${connection.url} returned invalid JSON for ${path}.`);
+  }
+}
+
+function parseQualityProfiles(value: ArrJsonValue): readonly ArrServerOption[] {
+  if (!Array.isArray(value)) {
+    throw new Error("The server returned invalid quality profiles.");
+  }
+
+  const profiles: ArrServerOption[] = [];
+
+  for (const profile of value) {
+    if (!isArrJsonObject(profile)) {
+      continue;
+    }
+
+    const id = profile.id;
+    const name = profile.name;
+
+    if (typeof id !== "number" || !Number.isSafeInteger(id) || id < 1 || typeof name !== "string") {
+      continue;
+    }
+
+    profiles.push({ label: name, value: String(id) });
+  }
+
+  return sortServerOptions(profiles);
+}
+
+function parseRootFolders(value: ArrJsonValue): readonly ArrServerOption[] {
+  if (!Array.isArray(value)) {
+    throw new Error("The server returned invalid root folders.");
+  }
+
+  const rootFolders: ArrServerOption[] = [];
+
+  for (const rootFolder of value) {
+    if (!isArrJsonObject(rootFolder) || typeof rootFolder.path !== "string") {
+      continue;
+    }
+
+    rootFolders.push({ label: rootFolder.path, value: rootFolder.path });
+  }
+
+  return sortServerOptions(rootFolders);
+}
+
+function sortServerOptions(options: readonly ArrServerOption[]): readonly ArrServerOption[] {
+  return [...options].sort((left, right) => left.label.localeCompare(right.label));
 }

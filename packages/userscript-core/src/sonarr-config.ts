@@ -4,8 +4,8 @@ import {
   parsePositiveInteger,
   requireEnvironmentValue,
 } from "./environment.ts";
-import { getArrConnectionConfig, type ArrConnectionConfig } from "./arr.ts";
-import type { SettingsField, SettingsValues } from "./settings.ts";
+import { getArrConnectionConfig, loadArrServerOptions, type ArrConnectionConfig } from "./arr.ts";
+import type { ServerOptionsLoader, SettingsField, SettingsValues } from "./settings.ts";
 
 export interface SonarrConnectionConfig extends ArrConnectionConfig {}
 
@@ -18,16 +18,56 @@ export interface SonarrConfig extends SonarrConnectionConfig {
 }
 
 export const sonarrConnectionSettingsFields: readonly SettingsField[] = [
-  { key: "sonarrUrl", label: "Sonarr URL", type: "text" },
+  {
+    hint: "The address you use to open Sonarr, including https://.",
+    key: "sonarrUrl",
+    label: "Sonarr URL",
+    type: "text",
+  },
 ];
 
 export const sonarrSecretFields = [{ key: "sonarrApiKey", label: "Sonarr API key" }] as const;
 
+export const sonarrServerOptionsLoader: ServerOptionsLoader = {
+  buttonLabel: "Load Sonarr folders and profiles",
+  credentialFields: sonarrSecretFields,
+  credentialTitle: "Connect to Sonarr",
+  insertAfterFieldKey: "sonarrUrl",
+  load: async (values, credentials) => {
+    const connection = getSonarrConnectionConfig(values, credentials.sonarrApiKey);
+
+    if (connection instanceof Error) {
+      throw connection;
+    }
+
+    const options = await loadArrServerOptions(connection);
+    return {
+      sonarrQualityProfileId: options.qualityProfiles,
+      sonarrRootFolder: options.rootFolders,
+    };
+  },
+};
+
 export const sonarrSettingsFields: readonly SettingsField[] = [
   ...sonarrConnectionSettingsFields,
-  { key: "sonarrRootFolder", label: "Sonarr root folder", type: "text" },
-  { key: "sonarrQualityProfileId", label: "Sonarr quality profile ID", type: "text" },
-  { key: "sonarrLanguageProfileId", label: "Sonarr language profile ID (optional)", type: "text" },
+  {
+    hint: "The folder path Sonarr should use for this series.",
+    key: "sonarrRootFolder",
+    label: "Sonarr root folder",
+    type: "text",
+  },
+  {
+    hint: "A positive numeric ID from Sonarr’s quality profiles.",
+    key: "sonarrQualityProfileId",
+    label: "Sonarr quality profile ID",
+    type: "text",
+  },
+  {
+    hint: "Leave empty if your Sonarr version does not use language profiles.",
+    key: "sonarrLanguageProfileId",
+    label: "Sonarr language profile ID (optional)",
+    type: "text",
+  },
   { key: "sonarrMonitored", label: "Monitor series", type: "checkbox" },
   { key: "sonarrSearchForMissingEpisodes", label: "Search for missing episodes", type: "checkbox" },
 ];

@@ -3,6 +3,7 @@ import {
   initializeScriptSettings,
   mountImdbArrIntegration,
   radarrSecretFields,
+  radarrServerOptionsLoader,
   radarrSettingsFields,
   RadarrClient,
   RadarrNotFoundError,
@@ -20,6 +21,7 @@ async function initialize(): Promise<void> {
     defaults: ARR_USERSCRIPTS_IMDB_RADARR_DEFAULTS,
     fields: radarrSettingsFields,
     menuCaption: "Configure ARR Userscripts: IMDb Radarr",
+    serverOptionsLoader: radarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-radarr/settings-v1",
     validate: (values) => {
       const config = getRadarrConfig(values, "session-api-key");

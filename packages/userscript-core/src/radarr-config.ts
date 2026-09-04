@@ -1,6 +1,6 @@
-import { getArrConnectionConfig, type ArrConnectionConfig } from "./arr.ts";
+import { getArrConnectionConfig, loadArrServerOptions, type ArrConnectionConfig } from "./arr.ts";
 import { parseBoolean, parsePositiveInteger, requireEnvironmentValue } from "./environment.ts";
-import type { SettingsField, SettingsValues } from "./settings.ts";
+import type { ServerOptionsLoader, SettingsField, SettingsValues } from "./settings.ts";
 
 export interface RadarrConnectionConfig extends ArrConnectionConfig {}
 
@@ -12,14 +12,49 @@ export interface RadarrConfig extends RadarrConnectionConfig {
 }
 
 export const radarrSettingsFields: readonly SettingsField[] = [
-  { key: "radarrUrl", label: "Radarr URL", type: "text" },
-  { key: "radarrRootFolder", label: "Radarr root folder", type: "text" },
-  { key: "radarrQualityProfileId", label: "Radarr quality profile ID", type: "text" },
+  {
+    hint: "The address you use to open Radarr, including https://.",
+    key: "radarrUrl",
+    label: "Radarr URL",
+    type: "text",
+  },
+  {
+    hint: "The folder path Radarr should use for this movie.",
+    key: "radarrRootFolder",
+    label: "Radarr root folder",
+    type: "text",
+  },
+  {
+    hint: "A positive numeric ID from Radarr’s quality profiles.",
+    key: "radarrQualityProfileId",
+    label: "Radarr quality profile ID",
+    type: "text",
+  },
   { key: "radarrMonitored", label: "Monitor movie", type: "checkbox" },
   { key: "radarrSearchForMovie", label: "Search for movie", type: "checkbox" },
 ];
 
 export const radarrSecretFields = [{ key: "radarrApiKey", label: "Radarr API key" }] as const;
+
+export const radarrServerOptionsLoader: ServerOptionsLoader = {
+  buttonLabel: "Load Radarr folders and profiles",
+  credentialFields: radarrSecretFields,
+  credentialTitle: "Connect to Radarr",
+  insertAfterFieldKey: "radarrUrl",
+  load: async (values, credentials) => {
+    const connection = getRadarrConnectionConfig(values, credentials.radarrApiKey);
+
+    if (connection instanceof Error) {
+      throw connection;
+    }
+
+    const options = await loadArrServerOptions(connection);
+    return {
+      radarrQualityProfileId: options.qualityProfiles,
+      radarrRootFolder: options.rootFolders,
+    };
+  },
+};
 
 export function getRadarrConnectionConfig(
   settings: SettingsValues,

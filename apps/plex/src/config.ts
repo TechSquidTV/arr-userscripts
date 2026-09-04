@@ -11,7 +11,12 @@ export interface PlexConfig {
 }
 
 export const plexSettingsFields: readonly SettingsField[] = [
-  { key: "plexServerUrl", label: "Plex server URL (optional)", type: "text" },
+  {
+    hint: "Optional. Lets the script confirm the item is a TV show before showing Sonarr.",
+    key: "plexServerUrl",
+    label: "Plex server URL",
+    type: "text",
+  },
 ];
 
 export const plexSecretFields = [{ key: "plexToken", label: "Plex token" }] as const;

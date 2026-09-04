@@ -29,10 +29,40 @@ it appears for TV shows, not music or movies.
 3. Visit a matching IMDb or Plex page, open your userscript manager’s menu, and
    choose **Configure ARR Userscripts**.
 
-Fill in your Sonarr or Radarr server address, library root folder, quality profile,
-and preferred monitoring/search options. The Plex script can also use your Plex
-server address to identify items more accurately. Press **Save**; the page reloads
-and is ready to use.
+In Violentmonkey, the configuration command appears underneath each matched script.
+Choose the command for the service you want to set up:
+
+![Violentmonkey menu showing the configuration command for the matched IMDb Sonarr and IMDb Radarr scripts](docs/assets/violentmonkey-configuration-menu.png)
+
+Enter your Sonarr or Radarr server address, then choose **Load server options**. The
+script asks for the API key only for that one request, fetches your configured root
+folders and quality profiles, and turns them into readable dropdowns. Choose the
+library location and profile you want, set your preferred monitoring/search options,
+then press **Save settings**. The page reloads and is ready to use.
+
+The Plex script can also use your Plex server address to identify items more
+accurately. It does not need a root folder or quality profile because it only opens
+shows that already exist in Sonarr.
+
+### What happens next
+
+The scripts do not ask for an API key simply because you installed them. They request
+it temporarily when you load server options and again, only in page memory, when you
+add a title. A server URL alone is not enough: Sonarr and Radarr also need a root
+folder and quality profile, which the setup screen loads from your server. Then open
+the right kind of detail page:
+
+- **IMDb → Sonarr** adds an **Add to Sonarr** button on a main TV-series page. It
+  intentionally does not appear on movie, episode, list, search, or unclear pages.
+- **IMDb → Radarr** adds an **Add to Radarr** button on a main movie page. It does
+  not appear on TV-series or episode pages.
+- **Plex → Sonarr** adds its Sonarr button on a TV-show detail page, not on movie or
+  music pages.
+
+When a button is ready to make its first request, the script opens a password-style
+prompt for that service’s API key. If you do not see a button, open the userscript
+manager menu and check **Configure ARR Userscripts** first; an incomplete setting is
+the most common reason.
 
 ## Your API keys stay with you
 

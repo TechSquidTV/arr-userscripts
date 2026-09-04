@@ -11,6 +11,7 @@ type ParsedJson =
   | { readonly [key: string]: ParsedJson };
 
 export interface SettingsField {
+  readonly hint?: string;
   readonly key: string;
   readonly label: string;
   readonly type: "checkbox" | "password" | "text";
@@ -21,10 +22,29 @@ export interface SessionSecretField {
   readonly label: string;
 }
 
+export interface SettingsSelectOption {
+  readonly label: string;
+  readonly value: string;
+}
+
+export type SettingsSelectOptions = Readonly<Record<string, readonly SettingsSelectOption[]>>;
+
+export interface ServerOptionsLoader {
+  readonly buttonLabel: string;
+  readonly credentialFields: readonly SessionSecretField[];
+  readonly credentialTitle: string;
+  readonly insertAfterFieldKey: string;
+  readonly load: (
+    values: SettingsValues,
+    credentials: SettingsValues,
+  ) => Promise<SettingsSelectOptions>;
+}
+
 export interface ScriptSettingsOptions {
   readonly defaults: SettingsValues;
   readonly fields: readonly SettingsField[];
   readonly menuCaption: string;
+  readonly serverOptionsLoader?: ServerOptionsLoader;
   readonly storageKey: string;
   readonly validate: (values: SettingsValues) => Error | undefined;
 }
@@ -77,57 +97,213 @@ async function loadSettingsDocument(
   }
 }
 
-function showSettingsDialog(options: ScriptSettingsOptions): void {
+interface DialogShell {
+  readonly dialog: HTMLDialogElement;
+  readonly form: HTMLFormElement;
+}
+
+interface DialogFieldControl {
+  readonly container: HTMLLabelElement;
+  readonly input: HTMLInputElement;
+}
+
+type DialogButtonKind = "danger" | "primary" | "secondary";
+type SettingsControl = HTMLInputElement | HTMLSelectElement;
+
+const dialogFontFamily =
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+function createDialogShell(title: string, descriptionText: string): DialogShell {
   const dialog = document.createElement("dialog");
   const form = document.createElement("form");
   const heading = document.createElement("h2");
   const description = document.createElement("p");
-  const status = document.createElement("p");
-  const fields = new Map<string, HTMLInputElement>();
-  const currentValuesPromise = loadSettings(options.storageKey, options.defaults);
 
-  dialog.style.border = "1px solid #555";
-  dialog.style.borderRadius = "8px";
-  dialog.style.color = "#111";
-  dialog.style.maxWidth = "480px";
-  dialog.style.padding = "24px";
+  dialog.style.background = "#ffffff";
+  dialog.style.border = "1px solid #d0d7de";
+  dialog.style.borderRadius = "12px";
+  dialog.style.boxShadow = "0 20px 50px rgb(15 23 42 / 28%)";
+  dialog.style.color = "#1f2937";
+  dialog.style.fontFamily = dialogFontFamily;
+  dialog.style.maxHeight = "calc(100vh - 32px)";
+  dialog.style.maxWidth = "520px";
+  dialog.style.overflowY = "auto";
+  dialog.style.padding = "0";
+  dialog.style.width = "calc(100vw - 32px)";
   form.style.display = "grid";
-  form.style.gap = "12px";
-  heading.textContent = options.menuCaption;
-  description.textContent =
-    "Saved values override the editable defaults. API keys and tokens are requested separately for each page and are never stored.";
-  status.setAttribute("role", "alert");
-
+  form.style.gap = "16px";
+  form.style.padding = "28px";
+  heading.style.color = "#111827";
+  heading.style.fontSize = "20px";
+  heading.style.fontWeight = "700";
+  heading.style.letterSpacing = "-0.015em";
+  heading.style.lineHeight = "1.25";
+  heading.style.margin = "0";
+  description.style.color = "#4b5563";
+  description.style.fontSize = "14px";
+  description.style.lineHeight = "1.5";
+  description.style.margin = "-8px 0 4px";
+  heading.textContent = title;
+  description.textContent = descriptionText;
   form.append(heading, description);
 
-  for (const field of options.fields) {
-    const label = document.createElement("label");
-    const input = document.createElement("input");
+  return { dialog, form };
+}
 
+function createDialogField(field: SettingsField): DialogFieldControl {
+  const label = document.createElement("label");
+  const labelText = document.createElement("span");
+  const input = document.createElement("input");
+
+  labelText.textContent = field.label;
+  labelText.style.color = "#374151";
+  labelText.style.fontSize = "14px";
+  labelText.style.fontWeight = "600";
+  labelText.style.lineHeight = "1.35";
+  input.name = field.key;
+  input.type = field.type;
+
+  if (field.type === "checkbox") {
+    label.style.alignItems = "center";
+    label.style.cursor = "pointer";
+    label.style.display = "flex";
+    label.style.gap = "10px";
+    input.style.accentColor = "#2563eb";
+    input.style.height = "18px";
+    input.style.margin = "0";
+    input.style.width = "18px";
+    label.append(input, labelText);
+  } else {
     label.style.display = "grid";
-    label.style.gap = "4px";
-    label.textContent = field.label;
-    input.name = field.key;
-    input.type = field.type;
-
-    if (field.type !== "checkbox") {
-      input.style.boxSizing = "border-box";
-      input.style.width = "100%";
-    }
-
-    fields.set(field.key, input);
-    label.append(input);
-    form.append(label);
+    label.style.gap = "6px";
+    styleDialogTextInput(input);
+    label.append(labelText, input);
   }
 
+  if (field.hint !== undefined) {
+    const hint = document.createElement("span");
+
+    hint.textContent = field.hint;
+    hint.style.color = "#6b7280";
+    hint.style.fontSize = "12px";
+    hint.style.lineHeight = "1.4";
+    label.append(hint);
+  }
+
+  return { container: label, input };
+}
+
+function styleDialogTextInput(input: HTMLInputElement): void {
+  input.autocomplete = "off";
+  input.style.background = "#ffffff";
+  input.style.border = "1px solid #9ca3af";
+  input.style.borderRadius = "7px";
+  input.style.boxSizing = "border-box";
+  input.style.color = "#111827";
+  input.style.font = "inherit";
+  input.style.fontSize = "15px";
+  input.style.lineHeight = "1.4";
+  input.style.minHeight = "40px";
+  input.style.padding = "8px 10px";
+  input.style.width = "100%";
+  input.addEventListener("blur", () => {
+    input.style.borderColor = "#9ca3af";
+    input.style.boxShadow = "none";
+  });
+  input.addEventListener("focus", () => {
+    input.style.borderColor = "#2563eb";
+    input.style.boxShadow = "0 0 0 3px rgb(37 99 235 / 18%)";
+  });
+}
+
+function styleDialogSelect(select: HTMLSelectElement): void {
+  select.style.background = "#ffffff";
+  select.style.border = "1px solid #9ca3af";
+  select.style.borderRadius = "7px";
+  select.style.boxSizing = "border-box";
+  select.style.color = "#111827";
+  select.style.font = "inherit";
+  select.style.fontSize = "15px";
+  select.style.lineHeight = "1.4";
+  select.style.minHeight = "40px";
+  select.style.padding = "8px 10px";
+  select.style.width = "100%";
+  select.addEventListener("blur", () => {
+    select.style.borderColor = "#9ca3af";
+    select.style.boxShadow = "none";
+  });
+  select.addEventListener("focus", () => {
+    select.style.borderColor = "#2563eb";
+    select.style.boxShadow = "0 0 0 3px rgb(37 99 235 / 18%)";
+  });
+}
+
+function createDialogControls(): HTMLDivElement {
   const controls = document.createElement("div");
-  const cancelButton = createDialogButton("Cancel");
-  const resetButton = createDialogButton("Reset saved settings");
-  const saveButton = createDialogButton("Save");
-  saveButton.type = "submit";
+
+  controls.style.alignItems = "center";
+  controls.style.borderTop = "1px solid #e5e7eb";
   controls.style.display = "flex";
   controls.style.flexWrap = "wrap";
   controls.style.gap = "8px";
+  controls.style.justifyContent = "flex-end";
+  controls.style.marginTop = "4px";
+  controls.style.paddingTop = "18px";
+  return controls;
+}
+
+function createDialogStatus(): HTMLParagraphElement {
+  const status = document.createElement("p");
+
+  status.setAttribute("aria-live", "polite");
+  status.setAttribute("role", "alert");
+  status.style.color = "#b42318";
+  status.style.fontSize = "13px";
+  status.style.fontWeight = "600";
+  status.style.lineHeight = "1.4";
+  status.style.margin = "-4px 0 0";
+  status.style.minHeight = "18px";
+  return status;
+}
+
+function showSettingsDialog(options: ScriptSettingsOptions): void {
+  const { dialog, form } = createDialogShell(
+    options.menuCaption,
+    "Saved values override the editable defaults. API keys and tokens are requested separately for each page and are never stored.",
+  );
+  const status = createDialogStatus();
+  const fields = new Map<string, SettingsControl>();
+  const currentValuesPromise = loadSettings(options.storageKey, options.defaults);
+  const loadButton =
+    options.serverOptionsLoader === undefined
+      ? undefined
+      : createServerOptionsButton(options, fields, status, currentValuesPromise);
+  let loadButtonAppended = false;
+
+  for (const field of options.fields) {
+    const { container, input } = createDialogField(field);
+
+    fields.set(field.key, input);
+    form.append(container);
+
+    if (
+      loadButton !== undefined &&
+      options.serverOptionsLoader?.insertAfterFieldKey === field.key
+    ) {
+      form.append(loadButton);
+      loadButtonAppended = true;
+    }
+  }
+
+  if (loadButton !== undefined && !loadButtonAppended) {
+    form.append(loadButton);
+  }
+
+  const controls = createDialogControls();
+  const cancelButton = createDialogButton("Cancel", "secondary");
+  const resetButton = createDialogButton("Reset saved settings", "danger");
+  const saveButton = createDialogButton("Save settings", "primary");
+  saveButton.type = "submit";
   controls.append(cancelButton, resetButton, saveButton);
   form.append(status, controls);
   dialog.append(form);
@@ -143,7 +319,7 @@ function showSettingsDialog(options: ScriptSettingsOptions): void {
 
       const value = values[field.key] ?? "";
 
-      if (field.type === "checkbox") {
+      if (field.type === "checkbox" && input instanceof HTMLInputElement) {
         input.checked = value === "true";
       } else {
         input.value = value;
@@ -167,6 +343,130 @@ function showSettingsDialog(options: ScriptSettingsOptions): void {
   dialog.showModal();
 }
 
+function createServerOptionsButton(
+  options: ScriptSettingsOptions,
+  fields: Map<string, SettingsControl>,
+  status: HTMLParagraphElement,
+  currentValuesPromise: Promise<SettingsValues>,
+): HTMLButtonElement {
+  const loader = options.serverOptionsLoader;
+
+  if (loader === undefined) {
+    throw new Error("Server options loader is required.");
+  }
+
+  const loadButton = createDialogButton(loader.buttonLabel, "secondary");
+
+  loadButton.style.justifySelf = "start";
+  loadButton.addEventListener("click", () => {
+    void currentValuesPromise.then(() => loadServerOptions(options, fields, status, loadButton));
+  });
+  return loadButton;
+}
+
+async function loadServerOptions(
+  options: ScriptSettingsOptions,
+  fields: Map<string, SettingsControl>,
+  status: HTMLParagraphElement,
+  loadButton: HTMLButtonElement,
+): Promise<void> {
+  const loader = options.serverOptionsLoader;
+
+  if (loader === undefined) {
+    return;
+  }
+
+  loadButton.disabled = true;
+
+  try {
+    const credentials = await requestSessionSecrets(
+      loader.credentialTitle,
+      loader.credentialFields,
+    );
+
+    if (credentials === undefined) {
+      return;
+    }
+
+    setDialogStatus(status, "Contacting the server…", "neutral");
+    const selectOptions = await loader.load(getDialogValues(fields, options.fields), credentials);
+    replaceWithSelectControls(fields, selectOptions);
+    setDialogStatus(
+      status,
+      "Server options loaded. Choose a folder and profile, then save.",
+      "success",
+    );
+  } catch (error) {
+    setDialogStatus(
+      status,
+      error instanceof Error ? error.message : "Unable to load server options.",
+      "error",
+    );
+  } finally {
+    loadButton.disabled = false;
+  }
+}
+
+function replaceWithSelectControls(
+  fields: Map<string, SettingsControl>,
+  selectOptions: SettingsSelectOptions,
+): void {
+  for (const [key, choices] of Object.entries(selectOptions)) {
+    const currentControl = fields.get(key);
+
+    if (currentControl === undefined || currentControl instanceof HTMLSelectElement) {
+      continue;
+    }
+
+    const select = document.createElement("select");
+    const currentValue = currentControl.value;
+
+    select.name = currentControl.name;
+    styleDialogSelect(select);
+    appendSelectOptions(select, choices, currentValue);
+    currentControl.replaceWith(select);
+    fields.set(key, select);
+  }
+}
+
+function appendSelectOptions(
+  select: HTMLSelectElement,
+  choices: readonly SettingsSelectOption[],
+  currentValue: string,
+): void {
+  const placeholder = document.createElement("option");
+
+  placeholder.disabled = true;
+  placeholder.textContent = choices.length === 0 ? "No options found" : "Choose an option";
+  placeholder.value = "";
+  select.append(placeholder);
+
+  for (const choice of choices) {
+    const option = document.createElement("option");
+
+    option.textContent = choice.label;
+    option.value = choice.value;
+    select.append(option);
+  }
+
+  if (choices.some((choice) => choice.value === currentValue)) {
+    select.value = currentValue;
+  } else if (choices.length === 1) {
+    select.value = choices[0]?.value ?? "";
+  } else {
+    select.value = "";
+  }
+}
+
+function setDialogStatus(
+  status: HTMLParagraphElement,
+  message: string,
+  tone: "error" | "neutral" | "success",
+): void {
+  status.style.color = tone === "error" ? "#b42318" : tone === "success" ? "#067647" : "#4b5563";
+  status.textContent = message;
+}
+
 export async function requestSessionSecrets(
   title: string,
   fields: readonly SessionSecretField[],
@@ -180,48 +480,29 @@ export async function requestSessionSecrets(
   }
 
   return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    const form = document.createElement("form");
-    const heading = document.createElement("h2");
-    const description = document.createElement("p");
+    const { dialog, form } = createDialogShell(
+      title,
+      "These credentials stay only in memory until this page is closed or reloaded. They are never saved by this userscript.",
+    );
     const inputs = new Map<string, HTMLInputElement>();
     let settled = false;
 
-    dialog.style.border = "1px solid #555";
-    dialog.style.borderRadius = "8px";
-    dialog.style.color = "#111";
-    dialog.style.maxWidth = "480px";
-    dialog.style.padding = "24px";
-    form.style.display = "grid";
-    form.style.gap = "12px";
-    heading.textContent = title;
-    description.textContent =
-      "These credentials stay only in memory until this page is closed or reloaded. They are never saved by this userscript.";
-    form.append(heading, description);
-
     for (const field of fields) {
-      const label = document.createElement("label");
-      const input = document.createElement("input");
+      const { container, input } = createDialogField({
+        key: field.key,
+        label: field.label,
+        type: "password",
+      });
 
-      label.style.display = "grid";
-      label.style.gap = "4px";
-      label.textContent = field.label;
       input.autocomplete = "current-password";
-      input.name = field.key;
-      input.type = "password";
-      input.style.boxSizing = "border-box";
-      input.style.width = "100%";
       inputs.set(field.key, input);
-      label.append(input);
-      form.append(label);
+      form.append(container);
     }
 
-    const controls = document.createElement("div");
-    const cancelButton = createDialogButton("Cancel");
-    const continueButton = createDialogButton("Continue");
+    const controls = createDialogControls();
+    const cancelButton = createDialogButton("Cancel", "secondary");
+    const continueButton = createDialogButton("Continue", "primary");
     continueButton.type = "submit";
-    controls.style.display = "flex";
-    controls.style.gap = "8px";
     controls.append(cancelButton, continueButton);
     form.append(controls);
     dialog.append(form);
@@ -259,15 +540,39 @@ export async function requestSessionSecrets(
   });
 }
 
-function createDialogButton(label: string): HTMLButtonElement {
+function createDialogButton(label: string, kind: DialogButtonKind): HTMLButtonElement {
   const button = document.createElement("button");
+
   button.type = "button";
   button.textContent = label;
+  button.style.border = "1px solid #d1d5db";
+  button.style.borderRadius = "7px";
+  button.style.cursor = "pointer";
+  button.style.font = "inherit";
+  button.style.fontSize = "14px";
+  button.style.fontWeight = "600";
+  button.style.lineHeight = "1.3";
+  button.style.minHeight = "38px";
+  button.style.padding = "8px 12px";
+
+  if (kind === "primary") {
+    button.style.background = "#2563eb";
+    button.style.borderColor = "#2563eb";
+    button.style.color = "#ffffff";
+  } else if (kind === "danger") {
+    button.style.background = "#fff7f7";
+    button.style.borderColor = "#f3c2c2";
+    button.style.color = "#b42318";
+  } else {
+    button.style.background = "#ffffff";
+    button.style.color = "#374151";
+  }
+
   return button;
 }
 
 function getDialogValues(
-  fields: ReadonlyMap<string, HTMLInputElement>,
+  fields: ReadonlyMap<string, SettingsControl>,
   definitions: readonly SettingsField[],
 ): SettingsValues {
   const values: Record<string, string> = {};
@@ -280,7 +585,9 @@ function getDialogValues(
     }
 
     values[definition.key] =
-      definition.type === "checkbox" ? String(input.checked) : input.value.trim();
+      definition.type === "checkbox" && input instanceof HTMLInputElement
+        ? String(input.checked)
+        : input.value.trim();
   }
 
   return values;
@@ -359,7 +666,7 @@ async function resetSettings(storageKey: string, status: HTMLElement): Promise<v
 
 async function saveSettings(
   options: ScriptSettingsOptions,
-  fields: ReadonlyMap<string, HTMLInputElement>,
+  fields: ReadonlyMap<string, SettingsControl>,
   status: HTMLElement,
 ): Promise<void> {
   const values = getDialogValues(fields, options.fields);
