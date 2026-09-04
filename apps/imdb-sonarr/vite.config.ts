@@ -14,18 +14,18 @@ export default function config({ mode }: ConfigEnv) {
     envDir: "../..",
     envPrefix: "ARR_",
     entry: "src/main.ts",
-    fileName: "imdb.user.js",
-    globalName: "ArrUserscriptsImdb",
+    fileName: "imdb-sonarr.user.js",
+    globalName: "ArrUserscriptsImdbSonarr",
     metadata: withReleaseMetadata(
       {
         ...metadata,
         connects: isRelease ? ["*"] : resolveConnectHosts([environment.ARR_SONARR_URL]),
       },
-      "imdb.user.js",
+      "imdb-sonarr.user.js",
       mode,
     ),
     settings: {
-      constantName: "ARR_USERSCRIPTS_IMDB_DEFAULTS",
+      constantName: "ARR_USERSCRIPTS_IMDB_SONARR_DEFAULTS",
       values: {
         sonarrLanguageProfileId: isRelease
           ? ""

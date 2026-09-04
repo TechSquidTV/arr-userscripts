@@ -12,13 +12,13 @@ import {
 } from "@arr-userscripts/core";
 import { metadata } from "./metadata.ts";
 
-declare const ARR_USERSCRIPTS_IMDB_DEFAULTS: Readonly<Record<string, string>>;
+declare const ARR_USERSCRIPTS_IMDB_SONARR_DEFAULTS: Readonly<Record<string, string>>;
 
 void initialize();
 
 async function initialize(): Promise<void> {
   const settings = await initializeScriptSettings({
-    defaults: ARR_USERSCRIPTS_IMDB_DEFAULTS,
+    defaults: ARR_USERSCRIPTS_IMDB_SONARR_DEFAULTS,
     fields: sonarrSettingsFields,
     menuCaption: "Configure Arr* Userscripts: IMDb Sonarr",
     serverOptionsLoader: sonarrServerOptionsLoader,

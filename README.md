@@ -12,7 +12,7 @@ Install the script that matches where and what you browse:
 
 | Script        | Use it when you are viewing | Install                                                                                                              |
 | ------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| IMDb → Sonarr | a TV series on IMDb         | [Install IMDb → Sonarr](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/imdb.user.js)        |
+| IMDb → Sonarr | a TV series on IMDb         | [Install IMDb → Sonarr](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/imdb-sonarr.user.js) |
 | IMDb → Radarr | a movie on IMDb             | [Install IMDb → Radarr](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/imdb-radarr.user.js) |
 | Plex → Sonarr | a TV show in Plex Web       | [Install Plex → Sonarr](https://github.com/techsquidtv/arr-userscripts/releases/latest/download/plex.user.js)        |
 

@@ -1,5 +1,5 @@
 {
-  "name": "@arr-userscripts/imdb",
+  "name": "@arr-userscripts/imdb-sonarr",
   "version": "0.1.0",
   "private": true,
   "type": "module",

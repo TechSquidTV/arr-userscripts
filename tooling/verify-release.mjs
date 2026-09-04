@@ -12,10 +12,10 @@ if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
 
 const assetDefinitions = new Map([
   [
-    "imdb.user.js",
+    "imdb-sonarr.user.js",
     {
-      name: "imdb.user.js",
-      settings: "ARR_USERSCRIPTS_IMDB_DEFAULTS",
+      name: "imdb-sonarr.user.js",
+      settings: "ARR_USERSCRIPTS_IMDB_SONARR_DEFAULTS",
       secretKeys: ["sonarrApiKey"],
     },
   ],
