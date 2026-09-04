@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools/*
+
+catalogMode: prefer
+
+catalog:
+  "@types/node": ^24
+  typescript: ^5
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.3
+  vite-plus: 0.2.3
+overrides:
+  vite: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

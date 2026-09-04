@@ -1,0 +1,19 @@
+{
+  "name": "@arr-userscripts/imdb",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vp build",
+    "dev": "vp build --watch",
+    "release": "vp build --mode release"
+  },
+  "dependencies": {
+    "@arr-userscripts/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
