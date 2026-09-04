@@ -34,11 +34,15 @@ Choose the command for the service you want to set up:
 
 ![Violentmonkey menu showing the configuration command for the matched IMDb Sonarr and IMDb Radarr scripts](.github/img/violentmonkey-configuration-menu.png)
 
-Enter your Sonarr or Radarr server address, then choose **Load server options**. The
-script asks for the API key only for that one request, fetches your configured root
-folders and quality profiles, and turns them into readable dropdowns. Choose the
-library location and profile you want, set your preferred monitoring/search options,
-then press **Save settings**. The page reloads and is ready to use.
+Enter your Sonarr or Radarr server address, root-folder path, and quality-profile ID,
+then press **Save settings**. The page reloads and is ready to use. This manual route
+works on its own—there is no need to load anything before saving.
+
+For a faster first-time setup, **Load folders and profiles (optional)** asks for your
+API key just for that request, fetches your configured root folders and quality
+profiles, and turns them into readable dropdowns. Pick the folder and profile you
+want, set your monitoring/search choices, then save. The API key used for this helper
+is not saved.
 
 The Plex script can also use your Plex server address to identify items more
 accurately. It does not need a root folder or quality profile because it only opens
@@ -47,11 +51,10 @@ shows that already exist in Sonarr.
 ### What happens next
 
 The scripts do not ask for an API key simply because you installed them. They request
-it temporarily when you load server options and again, only in page memory, when you
-add a title. A server URL alone is not enough: Sonarr and Radarr also need a root
-folder and quality profile. **Load folders and profiles (optional)** fetches those
-choices from your server, but you can enter the folder path and numeric profile ID
-yourself instead. Then open the right kind of detail page:
+it temporarily when you use the optional server-options helper or, on the manual path,
+when you add a title. A server URL alone is not enough: Sonarr and Radarr also need a
+root folder and quality profile; enter those values manually or use the optional
+helper. Then open the right kind of detail page:
 
 - **IMDb → Sonarr** adds an **Add to Sonarr** button on a main TV-series page. It
   intentionally does not appear on movie, episode, list, search, or unclear pages.
