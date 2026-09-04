@@ -201,7 +201,7 @@ export function withReleaseMetadata(
   fileName: string,
   mode: string,
 ): UserscriptMetadata {
-  if (mode !== "release") {
+  if (mode !== "release" && mode !== "personal-release") {
     return metadata;
   }
 
@@ -211,7 +211,23 @@ export function withReleaseMetadata(
     throw new Error("Release builds require RELEASE_VERSION in X.Y.Z format.");
   }
 
-  const assetUrl = `https://github.com/techsquidtv/arr-userscripts/releases/latest/download/${fileName}`;
+  const repository = process.env.RELEASE_REPOSITORY ?? "techsquidtv/arr-userscripts";
+  const releaseTag = process.env.RELEASE_TAG;
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new Error("RELEASE_REPOSITORY must be in owner/repository format.");
+  }
+
+  if (releaseTag !== undefined && !/^[A-Za-z0-9_.-]+$/.test(releaseTag)) {
+    throw new Error(
+      "RELEASE_TAG must contain only letters, numbers, dots, underscores, or hyphens.",
+    );
+  }
+
+  const assetUrl =
+    releaseTag === undefined
+      ? `https://github.com/${repository}/releases/latest/download/${fileName}`
+      : `https://github.com/${repository}/releases/download/${releaseTag}/${fileName}`;
 
   return {
     ...metadata,

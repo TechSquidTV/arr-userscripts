@@ -110,7 +110,11 @@ test("places editable defaults immediately after metadata", () => {
 
 test("adds tag-derived stable release metadata", () => {
   const originalVersion = process.env.RELEASE_VERSION;
+  const originalRepository = process.env.RELEASE_REPOSITORY;
+  const originalTag = process.env.RELEASE_TAG;
   process.env.RELEASE_VERSION = "1.2.3";
+  delete process.env.RELEASE_REPOSITORY;
+  delete process.env.RELEASE_TAG;
 
   try {
     const metadata = withReleaseMetadata(
@@ -131,11 +135,42 @@ test("adds tag-derived stable release metadata", () => {
     );
     expect(metadata.updateURL).toBe(metadata.downloadURL);
   } finally {
-    if (originalVersion === undefined) {
-      delete process.env.RELEASE_VERSION;
-    } else {
-      process.env.RELEASE_VERSION = originalVersion;
-    }
+    restoreEnvironmentValue("RELEASE_REPOSITORY", originalRepository);
+    restoreEnvironmentValue("RELEASE_TAG", originalTag);
+    restoreEnvironmentValue("RELEASE_VERSION", originalVersion);
+  }
+});
+
+test("uses a fork-specific stable release tag for a personal build", () => {
+  const originalVersion = process.env.RELEASE_VERSION;
+  const originalRepository = process.env.RELEASE_REPOSITORY;
+  const originalTag = process.env.RELEASE_TAG;
+  process.env.RELEASE_REPOSITORY = "example-user/arr-userscripts";
+  process.env.RELEASE_TAG = "personal-plex";
+  process.env.RELEASE_VERSION = "0.1.42";
+
+  try {
+    const metadata = withReleaseMetadata(
+      {
+        name: "Example",
+        namespace: "https://example.com/userscripts",
+        version: "0.0.0",
+        description: "An example userscript",
+        runAt: "document-end",
+      },
+      "plex.user.js",
+      "personal-release",
+    );
+
+    expect(metadata.version).toBe("0.1.42");
+    expect(metadata.downloadURL).toBe(
+      "https://github.com/example-user/arr-userscripts/releases/download/personal-plex/plex.user.js",
+    );
+    expect(metadata.updateURL).toBe(metadata.downloadURL);
+  } finally {
+    restoreEnvironmentValue("RELEASE_REPOSITORY", originalRepository);
+    restoreEnvironmentValue("RELEASE_TAG", originalTag);
+    restoreEnvironmentValue("RELEASE_VERSION", originalVersion);
   }
 });
 
@@ -158,8 +193,14 @@ test("rejects release metadata without a semantic tag version", () => {
       ),
     ).toThrow("Release builds require RELEASE_VERSION in X.Y.Z format.");
   } finally {
-    if (originalVersion !== undefined) {
-      process.env.RELEASE_VERSION = originalVersion;
-    }
+    restoreEnvironmentValue("RELEASE_VERSION", originalVersion);
   }
 });
+
+function restoreEnvironmentValue(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}

@@ -1,38 +1,64 @@
 import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 
-const [version, ...assetPaths] = process.argv.slice(2);
+const [version, ...arguments_] = process.argv.slice(2);
+const { assetPaths, releaseTag, repository } = parseArguments(arguments_);
 
 if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
-  throw new Error("Usage: node tooling/verify-release.mjs X.Y.Z <asset> [...asset]");
+  throw new Error(
+    "Usage: node tooling/verify-release.mjs X.Y.Z [--repository owner/repository] [--release-tag tag] <asset> [...asset]",
+  );
 }
 
-const assets = [
-  {
-    name: "imdb.user.js",
-    settings: "ARR_USERSCRIPTS_IMDB_DEFAULTS",
-    secretKeys: ["sonarrApiKey"],
-  },
-  {
-    name: "imdb-radarr.user.js",
-    settings: "ARR_USERSCRIPTS_IMDB_RADARR_DEFAULTS",
-    secretKeys: ["radarrApiKey"],
-  },
-  {
-    name: "plex.user.js",
-    settings: "ARR_USERSCRIPTS_PLEX_DEFAULTS",
-    secretKeys: ["plexToken", "sonarrApiKey"],
-  },
-];
+const assetDefinitions = new Map([
+  [
+    "imdb.user.js",
+    {
+      name: "imdb.user.js",
+      settings: "ARR_USERSCRIPTS_IMDB_DEFAULTS",
+      secretKeys: ["sonarrApiKey"],
+    },
+  ],
+  [
+    "imdb-radarr.user.js",
+    {
+      name: "imdb-radarr.user.js",
+      settings: "ARR_USERSCRIPTS_IMDB_RADARR_DEFAULTS",
+      secretKeys: ["radarrApiKey"],
+    },
+  ],
+  [
+    "plex.user.js",
+    {
+      name: "plex.user.js",
+      settings: "ARR_USERSCRIPTS_PLEX_DEFAULTS",
+      secretKeys: ["plexToken", "sonarrApiKey"],
+    },
+  ],
+]);
 
-if (assetPaths.length !== assets.length) {
-  throw new Error(`Expected ${assets.length} release assets.`);
+const assets = assetPaths.map((path) => {
+  const asset = assetDefinitions.get(basename(path));
+
+  if (asset === undefined) {
+    throw new Error(`Unsupported release asset: ${path}`);
+  }
+
+  return asset;
+});
+
+if (assets.length === 0) {
+  throw new Error("Expected at least one release asset.");
 }
 
 const sources = await Promise.all(assetPaths.map((path) => readFile(path, "utf8")));
 
 for (const [index, asset] of assets.entries()) {
   const source = sources[index];
-  const url = `https://github.com/techsquidtv/arr-userscripts/releases/latest/download/${asset.name}`;
+  const url =
+    releaseTag === undefined
+      ? `https://github.com/${repository}/releases/latest/download/${asset.name}`
+      : `https://github.com/${repository}/releases/download/${releaseTag}/${asset.name}`;
 
   assertIncludes(source, `// @version ${version}`, asset.name);
   assertIncludes(source, "// @author @techsquidtv", asset.name);
@@ -49,6 +75,37 @@ for (const [index, asset] of assets.entries()) {
       throw new Error(`${asset.name} includes a session-only secret in its editable defaults.`);
     }
   }
+}
+
+function parseArguments(arguments_) {
+  let repository = "techsquidtv/arr-userscripts";
+  let releaseTag;
+  const assetPaths = [];
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const value = arguments_[index];
+
+    if (value === "--repository") {
+      repository = arguments_[index + 1];
+      index += 1;
+    } else if (value === "--release-tag") {
+      releaseTag = arguments_[index + 1];
+      index += 1;
+    } else {
+      assetPaths.push(value);
+    }
+  }
+
+  if (
+    typeof repository !== "string" ||
+    !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) ||
+    (releaseTag !== undefined &&
+      (typeof releaseTag !== "string" || !/^[A-Za-z0-9_.-]+$/.test(releaseTag)))
+  ) {
+    throw new Error("Invalid release repository or release tag.");
+  }
+
+  return { assetPaths, releaseTag, repository };
 }
 
 function extractDefaultsBlock(source, settingsName, assetName) {

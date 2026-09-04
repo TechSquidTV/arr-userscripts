@@ -1,0 +1,65 @@
+name: Publish personal Plex userscript
+
+on:
+  workflow_dispatch:
+    inputs:
+      plex_web_urls:
+        description: Comma-separated Plex Web origins, including https://
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.repository.fork
+    runs-on: ubuntu-latest
+    env:
+      ARR_PLEX_WEB_URLS: ${{ inputs.plex_web_urls }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      RELEASE_TAG: personal-plex
+      RELEASE_VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: voidzero-dev/setup-vp@v1.16.1
+        with:
+          cache: true
+          node-version: "24"
+          run-install: false
+
+      - run: vp install --frozen-lockfile
+      - run: vp check
+      - run: vp test
+
+      - name: Build personal Plex userscript
+        run: |
+          if [[ -z "${ARR_PLEX_WEB_URLS//[[:space:]]/}" ]]; then
+            echo "Provide at least one Plex Web origin." >&2
+            exit 1
+          fi
+          (cd apps/plex && vp build --mode personal-release)
+          mkdir release
+          cp apps/plex/dist/plex.user.js release/plex.user.js
+          node tooling/verify-release.mjs "$RELEASE_VERSION" \
+            --repository "$RELEASE_REPOSITORY" \
+            --release-tag "$RELEASE_TAG" \
+            release/plex.user.js
+          sha256sum release/plex.user.js > release/SHA256SUMS.txt
+
+      - name: Publish personal Plex release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "Personal Plex userscript $RELEASE_VERSION" \
+              --notes "Custom Plex Web hosts configured by this fork's workflow."
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Personal Plex userscript $RELEASE_VERSION" \
+              --notes "Custom Plex Web hosts configured by this fork's workflow."
+          fi
+          gh release upload "$RELEASE_TAG" release/* --clobber

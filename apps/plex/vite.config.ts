@@ -11,6 +11,9 @@ import { metadata } from "./src/metadata.ts";
 export default function config({ mode }: ConfigEnv) {
   const environment = loadEnv(mode, "../..", "ARR_");
   const isRelease = mode === "release";
+  const isPersonalRelease = mode === "personal-release";
+  const isDistributionBuild = isRelease || isPersonalRelease;
+  const configuredPlexWebUrls = splitCommaSeparatedValues(environment.ARR_PLEX_WEB_URLS);
 
   return defineUserscriptConfig({
     envDir: "../..",
@@ -26,13 +29,14 @@ export default function config({ mode }: ConfigEnv) {
           ...(isRelease
             ? []
             : resolveUrlMatchPatterns(
-                [
-                  environment.ARR_PLEX_SERVER_URL,
-                  ...splitCommaSeparatedValues(environment.ARR_PLEX_WEB_URLS),
-                ].filter((url): url is string => url !== undefined && url.trim().length > 0),
+                isPersonalRelease
+                  ? configuredPlexWebUrls
+                  : [environment.ARR_PLEX_SERVER_URL, ...configuredPlexWebUrls].filter(
+                      (url): url is string => url !== undefined && url.trim().length > 0,
+                    ),
               )),
         ],
-        connects: isRelease
+        connects: isDistributionBuild
           ? ["*"]
           : resolveConnectHosts([environment.ARR_PLEX_SERVER_URL, environment.ARR_SONARR_URL]),
       },
@@ -42,8 +46,8 @@ export default function config({ mode }: ConfigEnv) {
     settings: {
       constantName: "ARR_USERSCRIPTS_PLEX_DEFAULTS",
       values: {
-        plexServerUrl: isRelease ? "" : (environment.ARR_PLEX_SERVER_URL ?? ""),
-        sonarrUrl: isRelease ? "" : (environment.ARR_SONARR_URL ?? ""),
+        plexServerUrl: isDistributionBuild ? "" : (environment.ARR_PLEX_SERVER_URL ?? ""),
+        sonarrUrl: isDistributionBuild ? "" : (environment.ARR_SONARR_URL ?? ""),
       },
     },
   });
