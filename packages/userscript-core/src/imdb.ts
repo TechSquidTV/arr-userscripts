@@ -39,6 +39,9 @@ interface ImdbArrButton {
   setStatus(label: string, state: ImdbArrButtonState): void;
 }
 
+const imdbPrimaryActionSelector =
+  '[data-testid="tm-box-wl-button"], [data-testid^="watched-button-tt"]';
+
 export interface ImdbTitleSignals {
   readonly hasEpisodeGuide: boolean;
   readonly hasMoviePopularityLink: boolean;
@@ -110,6 +113,31 @@ async function waitForImdbTitleKind(document: Document): Promise<ImdbTitleKind> 
   });
 }
 
+async function waitForImdbActionAnchor(): Promise<HTMLElement | undefined> {
+  try {
+    return await waitForElement<HTMLElement>(imdbPrimaryActionSelector, { timeoutMs: 5_000 });
+  } catch {
+    return waitForElement<HTMLElement>('[data-testid="hero__pageTitle"]', {
+      timeoutMs: 25_000,
+    }).catch((error: Error) => {
+      console.warn(`[Arr* Userscripts] ${error.message}`);
+      return undefined;
+    });
+  }
+}
+
+function getImdbActionContainer(actionAnchor: HTMLElement): HTMLElement {
+  if (actionAnchor.matches('[data-testid="tm-box-wl-button"]')) {
+    const actionContainer = actionAnchor.parentElement?.parentElement;
+
+    if (actionContainer instanceof HTMLElement) {
+      return actionContainer;
+    }
+  }
+
+  return actionAnchor;
+}
+
 export function classifyImdbTitleSignals(signals: ImdbTitleSignals): ImdbTitleKind {
   const titleKinds = new Set<Exclude<ImdbTitleKind, "unknown">>();
 
@@ -146,15 +174,7 @@ export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
   }
 
   const [actionAnchor, titleKind] = await Promise.all([
-    waitForElement<HTMLElement>(
-      '[data-testid^="watched-button-tt"], [data-testid="hero__pageTitle"]',
-      {
-        timeoutMs: 30_000,
-      },
-    ).catch((error: Error) => {
-      console.warn(`[${integration.scriptName}] ${error.message}`);
-      return undefined;
-    }),
+    waitForImdbActionAnchor(),
     waitForImdbTitleKind(document),
   ]);
 
@@ -168,7 +188,7 @@ export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
 
   const button = createImdbArrButton(integration.serviceName, integration.iconUrl);
   button.element.id = integration.buttonId;
-  actionAnchor.parentElement.insertBefore(button.element, actionAnchor);
+  getImdbActionContainer(actionAnchor).insertAdjacentElement("afterend", button.element);
 
   const config = integration.getConfig();
 
