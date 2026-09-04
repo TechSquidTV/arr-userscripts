@@ -1,5 +1,3 @@
-import { waitForElement } from "./dom.ts";
-
 export type ImdbTitleKind = "movie" | "series" | "unknown";
 
 export interface ImdbArrClient<Config, Item extends ImdbArrItem> {
@@ -41,6 +39,8 @@ interface ImdbArrButton {
 
 const imdbPrimaryActionSelector =
   '[data-testid="tm-box-wl-button"], [data-testid^="watched-button-tt"]';
+const imdbFallbackDelayMs = 5_000;
+const imdbReconcileDelayMs = 50;
 
 export interface ImdbTitleSignals {
   readonly hasEpisodeGuide: boolean;
@@ -82,60 +82,28 @@ export function getImdbTitleKind(document: Document): ImdbTitleKind {
   });
 }
 
-async function waitForImdbTitleKind(document: Document): Promise<ImdbTitleKind> {
-  const initialKind = getImdbTitleKind(document);
+function findImdbActionContainer(allowTitleFallback: boolean): HTMLElement | undefined {
+  const actionAnchor = document.querySelector<HTMLElement>(imdbPrimaryActionSelector);
 
-  if (initialKind !== "unknown") {
-    return initialKind;
-  }
+  if (actionAnchor !== null) {
+    if (actionAnchor.matches('[data-testid="tm-box-wl-button"]')) {
+      const actionContainer = actionAnchor.parentElement?.parentElement;
 
-  return new Promise((resolve) => {
-    let timeoutId: number | undefined;
-    const observer = new MutationObserver(() => {
-      const titleKind = getImdbTitleKind(document);
-
-      if (titleKind !== "unknown") {
-        finish(titleKind);
+      if (actionContainer instanceof HTMLElement) {
+        return actionContainer;
       }
-    });
-    const finish = (titleKind: ImdbTitleKind): void => {
-      observer.disconnect();
-
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-
-      resolve(titleKind);
-    };
-
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    timeoutId = window.setTimeout(() => finish(getImdbTitleKind(document)), 30_000);
-  });
-}
-
-async function waitForImdbActionAnchor(): Promise<HTMLElement | undefined> {
-  try {
-    return await waitForElement<HTMLElement>(imdbPrimaryActionSelector, { timeoutMs: 5_000 });
-  } catch {
-    return waitForElement<HTMLElement>('[data-testid="hero__pageTitle"]', {
-      timeoutMs: 25_000,
-    }).catch((error: Error) => {
-      console.warn(`[Arr* Userscripts] ${error.message}`);
-      return undefined;
-    });
-  }
-}
-
-function getImdbActionContainer(actionAnchor: HTMLElement): HTMLElement {
-  if (actionAnchor.matches('[data-testid="tm-box-wl-button"]')) {
-    const actionContainer = actionAnchor.parentElement?.parentElement;
-
-    if (actionContainer instanceof HTMLElement) {
-      return actionContainer;
     }
+
+    return actionAnchor;
   }
 
-  return actionAnchor;
+  if (allowTitleFallback) {
+    const title = document.querySelector<HTMLElement>('[data-testid="hero__pageTitle"]');
+
+    return title ?? undefined;
+  }
+
+  return undefined;
 }
 
 export function classifyImdbTitleSignals(signals: ImdbTitleSignals): ImdbTitleKind {
@@ -164,45 +132,84 @@ export function classifyImdbTitleSignals(signals: ImdbTitleSignals): ImdbTitleKi
   return "unknown";
 }
 
-export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
+export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
   integration: ImdbArrIntegration<Config, Item>,
-): Promise<void> {
-  const imdbId = getImdbTitleId(window.location.pathname);
+): void {
+  let fallbackTimerId: number | undefined;
+  let lastImdbId: string | undefined;
+  let reconcileTimerId: number | undefined;
 
-  if (imdbId === undefined || document.getElementById(integration.buttonId) !== null) {
-    return;
-  }
+  const scheduleReconcile = (): void => {
+    if (reconcileTimerId !== undefined) {
+      return;
+    }
 
-  const [actionAnchor, titleKind] = await Promise.all([
-    waitForImdbActionAnchor(),
-    waitForImdbTitleKind(document),
-  ]);
+    reconcileTimerId = window.setTimeout(() => {
+      reconcileTimerId = undefined;
+      reconcile();
+    }, imdbReconcileDelayMs);
+  };
 
-  if (
-    actionAnchor === undefined ||
-    actionAnchor.parentElement === null ||
-    titleKind !== integration.mediaKind
-  ) {
-    return;
-  }
+  const reconcile = (): void => {
+    const imdbId = getImdbTitleId(window.location.pathname);
+    const existingButton = document.getElementById(integration.buttonId);
 
-  const button = createImdbArrButton(integration.serviceName, integration.iconUrl);
-  button.element.id = integration.buttonId;
-  getImdbActionContainer(actionAnchor).insertAdjacentElement("afterend", button.element);
+    if (imdbId !== lastImdbId) {
+      lastImdbId = imdbId;
 
-  const config = integration.getConfig();
+      if (fallbackTimerId !== undefined) {
+        window.clearTimeout(fallbackTimerId);
+      }
 
-  if (config instanceof Error) {
-    button.setStatus(`Configure ${integration.serviceName}`, "error");
-    button.element.disabled = true;
-    button.element.style.cursor = "default";
-    button.element.title = config.message;
-    return;
-  }
+      fallbackTimerId = window.setTimeout(() => {
+        fallbackTimerId = undefined;
+        scheduleReconcile();
+      }, imdbFallbackDelayMs);
+    }
 
-  button.element.addEventListener("click", () => {
-    void addToArr(integration, imdbId, button);
-  });
+    if (imdbId === undefined || getImdbTitleKind(document) !== integration.mediaKind) {
+      existingButton?.remove();
+      return;
+    }
+
+    if (existingButton !== null) {
+      if (existingButton.dataset.imdbTitleId === imdbId) {
+        return;
+      }
+
+      existingButton.remove();
+    }
+
+    const actionContainer = findImdbActionContainer(fallbackTimerId === undefined);
+
+    if (actionContainer === undefined) {
+      return;
+    }
+
+    const button = createImdbArrButton(integration.serviceName, integration.iconUrl);
+    button.element.dataset.imdbTitleId = imdbId;
+    button.element.id = integration.buttonId;
+    actionContainer.insertAdjacentElement("afterend", button.element);
+
+    const config = integration.getConfig();
+
+    if (config instanceof Error) {
+      button.setStatus(`Configure ${integration.serviceName}`, "error");
+      button.element.disabled = true;
+      button.element.style.cursor = "default";
+      button.element.title = config.message;
+      return;
+    }
+
+    button.element.addEventListener("click", () => {
+      void addToArr(integration, imdbId, button);
+    });
+  };
+
+  const observer = new MutationObserver(scheduleReconcile);
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  scheduleReconcile();
 }
 
 function collectTitleKinds(

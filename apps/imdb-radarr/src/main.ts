@@ -28,7 +28,7 @@ async function initialize(): Promise<void> {
       return config instanceof Error ? config : undefined;
     },
   });
-  await mountImdbArrIntegration({
+  mountImdbArrIntegration({
     buttonId: "arr-userscripts-radarr-button",
     createClient: (config) => {
       const client = new RadarrClient(config);
