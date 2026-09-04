@@ -1,4 +1,5 @@
 import {
+  arrUserscriptsConfigurationGuideUrl,
   getSonarrConnectionConfig,
   initializeScriptSettings,
   requestSessionSecrets,
@@ -12,7 +13,7 @@ import {
 } from "@arr-userscripts/core";
 import { getPlexConfig, plexSecretFields, plexSettingsFields } from "./config.ts";
 import { metadata } from "./metadata.ts";
-import { PlexClient } from "./plex.ts";
+import { getPlexMetadataPath, PlexClient } from "./plex.ts";
 
 const buttonId = "arr-userscripts-plex-sonarr-button";
 const televisionIndicatorSelector = [
@@ -21,13 +22,10 @@ const televisionIndicatorSelector = [
   '[data-testid^="preplay-episode"]',
 ].join(", ");
 
-let mountInProgress = false;
-let mountRequested = false;
 let settings: SettingsValues;
-let sessionCredentialsRequested = false;
 let sessionSecrets: SettingsValues | undefined;
-let plexConfiguration: ReturnType<typeof getPlexConfig>;
 let plexClient: PlexClient | undefined;
+let reconcileTimerId: number | undefined;
 
 declare const ARR_USERSCRIPTS_PLEX_DEFAULTS: Readonly<Record<string, string>>;
 
@@ -53,99 +51,66 @@ async function initialize(): Promise<void> {
       return plexConfig instanceof Error ? plexConfig : undefined;
     },
   });
-  plexConfiguration = getPlexConfig(settings, undefined);
   plexClient = undefined;
   observePlexPage();
 }
 
 function observePlexPage(): void {
-  const observer = new MutationObserver(requestMount);
+  const observer = new MutationObserver(requestReconcile);
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  requestMount();
+  requestReconcile();
 }
 
-function requestMount(): void {
-  mountRequested = true;
-
-  if (mountInProgress) {
+function requestReconcile(): void {
+  if (reconcileTimerId !== undefined) {
     return;
   }
 
-  queueMicrotask(() => {
-    if (!mountRequested || mountInProgress) {
-      return;
-    }
-
-    mountRequested = false;
-    void mountButton();
-  });
+  reconcileTimerId = window.setTimeout(() => {
+    reconcileTimerId = undefined;
+    reconcileButton();
+  }, 50);
 }
 
-async function mountButton(): Promise<void> {
-  mountInProgress = true;
+function reconcileButton(): void {
+  const button = document.getElementById(buttonId);
 
-  try {
-    if (document.getElementById(buttonId) !== null || !isPlexDetailRoute()) {
-      return;
-    }
-
-    const title = getSeriesTitle();
-    const target = findActionTarget();
-
-    if (title === undefined || target === undefined || target.parentElement === null) {
-      return;
-    }
-
-    const route = location.href;
-
-    let lookupTerms = await getShowLookupTerms();
-
-    if (lookupTerms === undefined) {
-      return;
-    }
-
-    const secrets = await requestDetailSessionSecrets();
-
-    if (secrets === undefined) {
-      return;
-    }
-
-    if (plexClient !== undefined) {
-      lookupTerms = await getShowLookupTerms();
-
-      if (lookupTerms === undefined) {
-        return;
-      }
-    }
-
-    if (route !== location.href || document.getElementById(buttonId) !== null) {
-      return;
-    }
-
-    const sonarrConnection = getSonarrConnectionConfig(settings, secrets.sonarrApiKey);
-
-    if (sonarrConnection instanceof Error) {
-      console.warn(`[${metadata.name}] ${sonarrConnection.message}`);
-      return;
-    }
-
-    const button = createSonarrButton(
-      title,
-      [...lookupTerms, title],
-      new SonarrClient(sonarrConnection),
-    );
-    target.parentElement.insertBefore(button, target);
-  } finally {
-    mountInProgress = false;
-
-    if (mountRequested) {
-      requestMount();
-    }
+  if (!isPlexDetailRoute() || !hasPlexTelevisionIndicators()) {
+    button?.remove();
+    return;
   }
+
+  const title = getSeriesTitle();
+  const target = findActionTarget();
+
+  if (title === undefined || target?.parentElement === null || target === undefined) {
+    button?.remove();
+    return;
+  }
+
+  if (button !== null && button.dataset.plexRoute === location.href) {
+    if (button.nextElementSibling !== target) {
+      target.parentElement.insertBefore(button, target);
+    }
+
+    return;
+  }
+
+  button?.remove();
+
+  const configurationError = getConfigurationError();
+  const nextButton = createSonarrButton(title, configurationError);
+
+  nextButton.dataset.plexRoute = location.href;
+  target.parentElement.insertBefore(nextButton, target);
 }
 
 function isPlexDetailRoute(): boolean {
   return location.href.includes("/details?key=");
+}
+
+function hasPlexTelevisionIndicators(): boolean {
+  return document.querySelector(televisionIndicatorSelector) !== null;
 }
 
 function getSeriesTitle(): string | undefined {
@@ -157,18 +122,34 @@ function getSeriesTitle(): string | undefined {
 
 function findActionTarget(): HTMLElement | undefined {
   const target = document.querySelector<HTMLElement>(
-    '[aria-label="Share"], [title="Share"], [aria-label="More"], [title="More"]',
+    '[data-testid^="preplay-more"], [aria-label="More"], [title="More"], [aria-label="Share"], [title="Share"]',
   );
 
   return target ?? undefined;
 }
 
-async function getShowLookupTerms(): Promise<readonly string[] | undefined> {
-  if (plexClient === undefined) {
-    return document.querySelector(televisionIndicatorSelector) === null ? undefined : [];
+function getConfigurationError(): Error | undefined {
+  const sonarrConnection = getSonarrConnectionConfig(settings, "session-api-key");
+
+  if (sonarrConnection instanceof Error) {
+    return sonarrConnection;
   }
 
-  const metadataPath = getPlexMetadataPath();
+  const requiresPlexToken = (settings.plexServerUrl ?? "").trim().length > 0;
+  const plexConfiguration = getPlexConfig(
+    settings,
+    requiresPlexToken ? "session-token" : undefined,
+  );
+
+  return plexConfiguration instanceof Error ? plexConfiguration : undefined;
+}
+
+async function getShowLookupTerms(): Promise<readonly string[] | undefined> {
+  if (plexClient === undefined) {
+    return hasPlexTelevisionIndicators() ? [] : undefined;
+  }
+
+  const metadataPath = getPlexMetadataPath(location.href);
 
   if (metadataPath === undefined) {
     return undefined;
@@ -184,7 +165,7 @@ async function getShowLookupTerms(): Promise<readonly string[] | undefined> {
 }
 
 async function requestDetailSessionSecrets(): Promise<SettingsValues | undefined> {
-  if (sessionCredentialsRequested) {
+  if (sessionSecrets !== undefined) {
     return sessionSecrets;
   }
 
@@ -204,12 +185,17 @@ async function requestDetailSessionSecrets(): Promise<SettingsValues | undefined
     return undefined;
   }
 
-  sessionCredentialsRequested = true;
-  sessionSecrets = await requestSessionSecrets("Plex Sonarr credentials", [
+  const requestedSecrets = await requestSessionSecrets("Plex Sonarr credentials", [
     ...sonarrSecretFields,
     ...(requiresPlexToken ? plexSecretFields : []),
   ]);
-  plexConfiguration = getPlexConfig(settings, sessionSecrets?.plexToken);
+
+  if (requestedSecrets === undefined) {
+    return undefined;
+  }
+
+  sessionSecrets = requestedSecrets;
+  const plexConfiguration = getPlexConfig(settings, sessionSecrets.plexToken);
   plexClient =
     plexConfiguration instanceof Error || plexConfiguration === undefined
       ? undefined
@@ -217,30 +203,9 @@ async function requestDetailSessionSecrets(): Promise<SettingsValues | undefined
   return sessionSecrets;
 }
 
-function getPlexMetadataPath(): string | undefined {
-  const detailUrl = new URL(location.href);
-  const query =
-    detailUrl.searchParams.size > 0
-      ? detailUrl.searchParams
-      : new URLSearchParams(detailUrl.hash.split("?")[1]);
-  const key = query.get("key");
-
-  if (key === null) {
-    return undefined;
-  }
-
-  try {
-    const path = decodeURIComponent(key);
-    return /^\/library\/metadata\/\d+$/.test(path) ? path : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function createSonarrButton(
   title: string,
-  lookupTerms: readonly string[],
-  sonarrClient: SonarrClient,
+  configurationError: Error | undefined,
 ): HTMLButtonElement {
   const button = document.createElement("button");
   const icon = document.createElement("img");
@@ -248,7 +213,10 @@ function createSonarrButton(
 
   button.id = buttonId;
   button.type = "button";
-  button.title = "Look up this television show in Sonarr";
+  button.title =
+    configurationError === undefined
+      ? "Look up this television show in Sonarr"
+      : configurationError.message;
   button.style.alignItems = "center";
   button.style.background = "transparent";
   button.style.border = "none";
@@ -265,7 +233,7 @@ function createSonarrButton(
   icon.src = serviceIconUrls.sonarr.light;
   icon.width = 18;
   icon.style.marginRight = "6px";
-  label.textContent = "Sonarr";
+  label.textContent = configurationError === undefined ? "Sonarr" : "Configure Arr*";
   button.append(icon, label);
 
   button.addEventListener("mouseenter", () => {
@@ -277,7 +245,12 @@ function createSonarrButton(
     }
   });
   button.addEventListener("click", () => {
-    void openInSonarr(title, lookupTerms, sonarrClient, button, label);
+    if (configurationError !== undefined) {
+      window.open(arrUserscriptsConfigurationGuideUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    void openInSonarr(title, button, label);
   });
 
   return button;
@@ -285,8 +258,6 @@ function createSonarrButton(
 
 async function openInSonarr(
   title: string,
-  lookupTerms: readonly string[],
-  sonarrClient: SonarrClient,
   button: HTMLButtonElement,
   label: HTMLSpanElement,
 ): Promise<void> {
@@ -303,7 +274,30 @@ async function openInSonarr(
   label.textContent = "Looking up…";
 
   try {
-    const series = await findSeries(sonarrClient, lookupTerms);
+    const secrets = await requestDetailSessionSecrets();
+
+    if (secrets === undefined) {
+      sonarrWindow.close();
+      label.textContent = "Sonarr";
+      return;
+    }
+
+    const lookupTerms = await getShowLookupTerms();
+
+    if (lookupTerms === undefined) {
+      sonarrWindow.close();
+      label.textContent = "TV show required";
+      return;
+    }
+
+    const sonarrConnection = getSonarrConnectionConfig(settings, secrets.sonarrApiKey);
+
+    if (sonarrConnection instanceof Error) {
+      throw sonarrConnection;
+    }
+
+    const sonarrClient = new SonarrClient(sonarrConnection);
+    const series = await findSeries(sonarrClient, [...lookupTerms, title]);
     sonarrWindow.location.replace(sonarrClient.seriesUrl(series));
     label.textContent = "Open in Sonarr";
   } catch (error) {

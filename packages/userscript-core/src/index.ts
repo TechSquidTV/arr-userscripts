@@ -6,6 +6,7 @@ export {
   requireEnvironmentValue,
 } from "./environment.ts";
 export { waitForElement, type WaitForElementOptions } from "./dom.ts";
+export { arrUserscriptsConfigurationGuideUrl } from "./documentation.ts";
 export { serviceIconUrls } from "./icons.ts";
 export {
   classifyImdbJsonLd,

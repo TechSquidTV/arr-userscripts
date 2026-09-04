@@ -1,3 +1,5 @@
+import { arrUserscriptsConfigurationGuideUrl } from "./documentation.ts";
+
 export type ImdbTitleKind = "movie" | "series" | "unknown";
 
 export interface ImdbArrClient<Config, Item extends ImdbArrItem> {
@@ -41,8 +43,6 @@ const imdbLegacyActionSelector = '[data-testid^="watched-button-tt"]';
 const imdbWatchlistSelector = '[data-testid="tm-box-wl-button"]';
 const imdbFallbackDelayMs = 5_000;
 const imdbReconcileDelayMs = 50;
-const configurationGuideUrl =
-  "https://github.com/techsquidtv/arr-userscripts#install-in-three-steps";
 
 export interface ImdbTitleSignals {
   readonly hasEpisodeGuide: boolean;
@@ -208,7 +208,7 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
       button.setStatus(`Configure ${integration.serviceName}`, "default");
       button.element.title = config.message;
       button.element.addEventListener("click", () => {
-        window.open(configurationGuideUrl, "_blank", "noopener,noreferrer");
+        window.open(arrUserscriptsConfigurationGuideUrl, "_blank", "noopener,noreferrer");
       });
       return;
     }

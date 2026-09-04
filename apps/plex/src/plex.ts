@@ -78,10 +78,44 @@ function parseMediaType(type: string | null | undefined): PlexMediaType {
 }
 
 function parseSonarrLookupTerms(document: Document): readonly string[] {
+  return getSonarrLookupTerms(
+    [...document.querySelectorAll("Guid")].map((guid) => guid.getAttribute("id")),
+  );
+}
+
+export function getPlexMetadataPath(detailUrl: string): string | undefined {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(detailUrl);
+  } catch {
+    return undefined;
+  }
+  const query =
+    parsedUrl.searchParams.size > 0
+      ? parsedUrl.searchParams
+      : new URLSearchParams(parsedUrl.hash.split("?")[1]);
+  const key = query.get("key");
+
+  if (key === null) {
+    return undefined;
+  }
+
+  try {
+    const path = decodeURIComponent(key);
+    return /^\/library\/metadata\/\d+$/.test(path) ? path : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function getSonarrLookupTerms(
+  guidIdentifiers: readonly (string | null)[],
+): readonly string[] {
   const identifiersByProvider = new Map<string, string>();
 
-  for (const guid of document.querySelectorAll("Guid")) {
-    const identifier = parseExternalIdentifier(guid.getAttribute("id"));
+  for (const guidIdentifier of guidIdentifiers) {
+    const identifier = parseExternalIdentifier(guidIdentifier);
 
     if (identifier !== undefined && !identifiersByProvider.has(identifier.provider)) {
       identifiersByProvider.set(identifier.provider, identifier.value);
