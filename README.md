@@ -59,10 +59,10 @@ the right kind of detail page:
 - **Plex → Sonarr** adds its Sonarr button on a TV-show detail page, not on movie or
   music pages.
 
-When a button is ready to make its first request, the script opens a password-style
-prompt for that service’s API key. If you do not see a button, open the userscript
-manager menu and check **Configure Arr\* Userscripts** first; an incomplete setting is
-the most common reason.
+When you click an Add button, the script opens a password-style prompt for that
+service’s API key. If you do not see a button, open the userscript manager menu and
+check **Configure Arr\* Userscripts** first; an incomplete setting is the most common
+reason.
 
 ## Your API keys stay with you
 

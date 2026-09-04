@@ -38,13 +38,8 @@ async function initialize(): Promise<void> {
         findExisting: (imdbId) => client.findExistingSeries(imdbId),
       };
     },
-    getConfig: async () => {
-      const configuration = getSonarrConfig(settings, "session-api-key");
-
-      if (configuration instanceof Error) {
-        return configuration;
-      }
-
+    getConfig: () => getSonarrConfig(settings, "session-api-key"),
+    getSessionConfig: async () => {
       const sessionSecrets = await requestSessionSecrets(
         "IMDb Sonarr credentials",
         sonarrSecretFields,

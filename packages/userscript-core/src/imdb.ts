@@ -10,7 +10,8 @@ export interface ImdbArrClient<Config, Item extends ImdbArrItem> {
 export interface ImdbArrIntegration<Config, Item extends ImdbArrItem> {
   readonly buttonId: string;
   readonly createClient: (config: Config) => ImdbArrClient<Config, Item>;
-  readonly getConfig: () => Promise<Config | Error>;
+  readonly getConfig: () => Config | Error;
+  readonly getSessionConfig: () => Promise<Config | Error>;
   readonly iconUrl: string;
   readonly isNotFoundError: (error: Error) => boolean;
   readonly mediaKind: Exclude<ImdbTitleKind, "unknown">;
@@ -135,7 +136,7 @@ export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
   button.element.id = integration.buttonId;
   actionAnchor.parentElement.insertBefore(button.element, actionAnchor);
 
-  const config = await integration.getConfig();
+  const config = integration.getConfig();
 
   if (config instanceof Error) {
     button.setStatus(`Configure ${integration.serviceName}`, "error");
@@ -145,11 +146,8 @@ export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
     return;
   }
 
-  const client = integration.createClient(config);
-  await updateExistingStatus(integration, client, imdbId, button);
-
   button.element.addEventListener("click", () => {
-    void addToArr(integration, client, config, imdbId, button);
+    void addToArr(integration, imdbId, button);
   });
 }
 
@@ -231,7 +229,7 @@ async function updateExistingStatus<Config, Item extends ImdbArrItem>(
   client: ImdbArrClient<Config, Item>,
   imdbId: string,
   button: ImdbArrButton,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const existingItem = await client.findExisting(imdbId);
 
@@ -242,19 +240,35 @@ async function updateExistingStatus<Config, Item extends ImdbArrItem>(
           : `In ${integration.serviceName} (unmonitored) ✓`,
         "success",
       );
+      return true;
     }
   } catch (error) {
     console.warn(`[${integration.scriptName}] Could not read the library.`, error);
   }
+
+  return false;
 }
 
 async function addToArr<Config, Item extends ImdbArrItem>(
   integration: ImdbArrIntegration<Config, Item>,
-  client: ImdbArrClient<Config, Item>,
-  config: Config,
   imdbId: string,
   button: ImdbArrButton,
 ): Promise<void> {
+  button.setStatus("Connecting…", "loading");
+
+  const config = await integration.getSessionConfig();
+
+  if (config instanceof Error) {
+    button.setStatus(config.message, "error");
+    return;
+  }
+
+  const client = integration.createClient(config);
+
+  if (await updateExistingStatus(integration, client, imdbId, button)) {
+    return;
+  }
+
   button.setStatus("Looking up…", "loading");
 
   try {

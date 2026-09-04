@@ -38,13 +38,8 @@ async function initialize(): Promise<void> {
         findExisting: (imdbId) => client.findExistingMovie(imdbId),
       };
     },
-    getConfig: async () => {
-      const configuration = getRadarrConfig(settings, "session-api-key");
-
-      if (configuration instanceof Error) {
-        return configuration;
-      }
-
+    getConfig: () => getRadarrConfig(settings, "session-api-key"),
+    getSessionConfig: async () => {
       const sessionSecrets = await requestSessionSecrets(
         "IMDb Radarr credentials",
         radarrSecretFields,
