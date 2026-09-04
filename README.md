@@ -41,6 +41,8 @@ the options you want, set the monitoring/search choices, then press **Save setti
 again to finish. You can still type a folder path and profile ID yourself; the
 **Reload folders and profiles** button refreshes the dropdowns whenever you need it.
 
+![Arr* Userscripts configuration screen with the saved API key field and server options](.github/img/arr-configuration.png)
+
 The Plex script can also use your Plex server address to identify items more
 accurately. It does not need a root folder or quality profile because it only opens
 shows that already exist in Sonarr.

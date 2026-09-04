@@ -4,7 +4,7 @@ export const metadata: UserscriptMetadata = {
   name: "Arr* Userscripts: IMDb Radarr",
   author: "@techsquidtv",
   namespace: "https://github.com/techsquidtv/arr-userscripts",
-  version: "0.1.1",
+  version: "0.2.0",
   description: "Add IMDb movies to Radarr and show their library status.",
   matches: ["*://*.imdb.com/title/tt*"],
   grants: [

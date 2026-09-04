@@ -309,8 +309,8 @@ async function updateExistingStatus<Config, Item extends ImdbArrItem>(
     if (existingItem !== undefined) {
       button.setStatus(
         existingItem.monitored
-          ? `Monitored in ${integration.serviceName} ✓`
-          : `In ${integration.serviceName} (unmonitored) ✓`,
+          ? `Monitored in ${integration.serviceName}`
+          : `In ${integration.serviceName} (unmonitored)`,
         "success",
       );
       return true;
@@ -348,8 +348,8 @@ async function addToArr<Config, Item extends ImdbArrItem>(
     const item = await client.add(imdbId, config);
     button.setStatus(
       item.monitored
-        ? `Monitored in ${integration.serviceName} ✓`
-        : `In ${integration.serviceName} (unmonitored) ✓`,
+        ? `Monitored in ${integration.serviceName}`
+        : `In ${integration.serviceName} (unmonitored)`,
       "success",
     );
   } catch (error) {
