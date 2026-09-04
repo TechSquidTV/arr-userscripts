@@ -79,6 +79,37 @@ export function getImdbTitleKind(document: Document): ImdbTitleKind {
   });
 }
 
+async function waitForImdbTitleKind(document: Document): Promise<ImdbTitleKind> {
+  const initialKind = getImdbTitleKind(document);
+
+  if (initialKind !== "unknown") {
+    return initialKind;
+  }
+
+  return new Promise((resolve) => {
+    let timeoutId: number | undefined;
+    const observer = new MutationObserver(() => {
+      const titleKind = getImdbTitleKind(document);
+
+      if (titleKind !== "unknown") {
+        finish(titleKind);
+      }
+    });
+    const finish = (titleKind: ImdbTitleKind): void => {
+      observer.disconnect();
+
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+
+      resolve(titleKind);
+    };
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    timeoutId = window.setTimeout(() => finish(getImdbTitleKind(document)), 30_000);
+  });
+}
+
 export function classifyImdbTitleSignals(signals: ImdbTitleSignals): ImdbTitleKind {
   const titleKinds = new Set<Exclude<ImdbTitleKind, "unknown">>();
 
@@ -114,20 +145,23 @@ export async function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
     return;
   }
 
-  const actionAnchor = await waitForElement<HTMLElement>(
-    '[data-testid^="watched-button-tt"], [data-testid="hero__pageTitle"]',
-    {
-      timeoutMs: 30_000,
-    },
-  ).catch((error: Error) => {
-    console.warn(`[${integration.scriptName}] ${error.message}`);
-    return undefined;
-  });
+  const [actionAnchor, titleKind] = await Promise.all([
+    waitForElement<HTMLElement>(
+      '[data-testid^="watched-button-tt"], [data-testid="hero__pageTitle"]',
+      {
+        timeoutMs: 30_000,
+      },
+    ).catch((error: Error) => {
+      console.warn(`[${integration.scriptName}] ${error.message}`);
+      return undefined;
+    }),
+    waitForImdbTitleKind(document),
+  ]);
 
   if (
     actionAnchor === undefined ||
     actionAnchor.parentElement === null ||
-    getImdbTitleKind(document) !== integration.mediaKind
+    titleKind !== integration.mediaKind
   ) {
     return;
   }
