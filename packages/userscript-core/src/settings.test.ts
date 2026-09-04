@@ -159,6 +159,33 @@ test("validates required settings before an ARR request is made", () => {
   expect(radarr).toBeInstanceOf(Error);
 });
 
+test("accepts manually entered ARR settings without loading server options", () => {
+  const sonarr = getSonarrConfig(
+    {
+      sonarrLanguageProfileId: "",
+      sonarrMonitored: "true",
+      sonarrQualityProfileId: "2",
+      sonarrRootFolder: "/media/tv",
+      sonarrSearchForMissingEpisodes: "true",
+      sonarrUrl: "https://sonarr.example.test",
+    },
+    "session-key",
+  );
+  const radarr = getRadarrConfig(
+    {
+      radarrMonitored: "true",
+      radarrQualityProfileId: "3",
+      radarrRootFolder: "/media/movies",
+      radarrSearchForMovie: "true",
+      radarrUrl: "https://radarr.example.test",
+    },
+    "session-key",
+  );
+
+  expect(sonarr).not.toBeInstanceOf(Error);
+  expect(radarr).not.toBeInstanceOf(Error);
+});
+
 test("uses legacy GM APIs to save, reset, and register settings controls", async () => {
   const globals = globalThis as typeof globalThis & GmTestGlobals;
   const original = captureGmGlobals(globals);

@@ -29,7 +29,7 @@ export const sonarrConnectionSettingsFields: readonly SettingsField[] = [
 export const sonarrSecretFields = [{ key: "sonarrApiKey", label: "Sonarr API key" }] as const;
 
 export const sonarrServerOptionsLoader: ServerOptionsLoader = {
-  buttonLabel: "Load Sonarr folders and profiles",
+  buttonLabel: "Load Sonarr folders and profiles (optional)",
   credentialFields: sonarrSecretFields,
   credentialTitle: "Connect to Sonarr",
   insertAfterFieldKey: "sonarrUrl",

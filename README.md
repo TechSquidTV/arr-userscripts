@@ -49,8 +49,9 @@ shows that already exist in Sonarr.
 The scripts do not ask for an API key simply because you installed them. They request
 it temporarily when you load server options and again, only in page memory, when you
 add a title. A server URL alone is not enough: Sonarr and Radarr also need a root
-folder and quality profile, which the setup screen loads from your server. Then open
-the right kind of detail page:
+folder and quality profile. **Load folders and profiles (optional)** fetches those
+choices from your server, but you can enter the folder path and numeric profile ID
+yourself instead. Then open the right kind of detail page:
 
 - **IMDb → Sonarr** adds an **Add to Sonarr** button on a main TV-series page. It
   intentionally does not appear on movie, episode, list, search, or unclear pages.

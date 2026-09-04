@@ -37,7 +37,7 @@ export const radarrSettingsFields: readonly SettingsField[] = [
 export const radarrSecretFields = [{ key: "radarrApiKey", label: "Radarr API key" }] as const;
 
 export const radarrServerOptionsLoader: ServerOptionsLoader = {
-  buttonLabel: "Load Radarr folders and profiles",
+  buttonLabel: "Load Radarr folders and profiles (optional)",
   credentialFields: radarrSecretFields,
   credentialTitle: "Connect to Radarr",
   insertAfterFieldKey: "radarrUrl",
