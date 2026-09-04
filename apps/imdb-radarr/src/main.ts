@@ -2,12 +2,10 @@ import {
   getRadarrConfig,
   initializeScriptSettings,
   mountImdbArrIntegration,
-  radarrSecretFields,
   radarrServerOptionsLoader,
   radarrSettingsFields,
   RadarrClient,
   RadarrNotFoundError,
-  requestSessionSecrets,
   serviceIconUrls,
 } from "@arr-userscripts/core";
 import { metadata } from "./metadata.ts";
@@ -24,7 +22,7 @@ async function initialize(): Promise<void> {
     serverOptionsLoader: radarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-radarr/settings-v1",
     validate: (values) => {
-      const config = getRadarrConfig(values, "session-api-key");
+      const config = getRadarrConfig(values);
       return config instanceof Error ? config : undefined;
     },
   });
@@ -38,14 +36,7 @@ async function initialize(): Promise<void> {
         findExisting: (imdbId) => client.findExistingMovie(imdbId),
       };
     },
-    getConfig: () => getRadarrConfig(settings, "session-api-key"),
-    getSessionConfig: async () => {
-      const sessionSecrets = await requestSessionSecrets(
-        "IMDb Radarr credentials",
-        radarrSecretFields,
-      );
-      return getRadarrConfig(settings, sessionSecrets?.radarrApiKey);
-    },
+    getConfig: () => getRadarrConfig(settings),
     iconUrl: serviceIconUrls.radarr.light,
     isNotFoundError: (error) => error instanceof RadarrNotFoundError,
     mediaKind: "movie",

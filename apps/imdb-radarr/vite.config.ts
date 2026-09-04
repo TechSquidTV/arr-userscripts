@@ -27,6 +27,7 @@ export default function config({ mode }: ConfigEnv) {
     settings: {
       constantName: "ARR_USERSCRIPTS_IMDB_RADARR_DEFAULTS",
       values: {
+        radarrApiKey: "",
         radarrMonitored: isRelease ? "true" : (environment.ARR_RADARR_MONITORED ?? "true"),
         radarrQualityProfileId: isRelease ? "" : (environment.ARR_RADARR_QUALITY_PROFILE_ID ?? ""),
         radarrRootFolder: isRelease ? "" : (environment.ARR_RADARR_ROOT_FOLDER ?? ""),

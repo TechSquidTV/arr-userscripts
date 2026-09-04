@@ -71,8 +71,8 @@ for (const [index, asset] of assets.entries()) {
   const defaults = extractDefaultsBlock(source, asset.settings, asset.name);
 
   for (const secretKey of asset.secretKeys) {
-    if (defaults.includes(`"${secretKey}"`)) {
-      throw new Error(`${asset.name} includes a session-only secret in its editable defaults.`);
+    if (!defaults.includes(`"${secretKey}": ""`)) {
+      throw new Error(`${asset.name} must include a blank ${secretKey} editable default.`);
     }
   }
 }

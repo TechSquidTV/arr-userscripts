@@ -190,7 +190,8 @@ export function formatUserscriptPreamble(
  * Arr* Userscripts configuration defaults
  * Edit these values before installation if preferred. Values saved through the
  * userscript manager's Configure menu override these defaults and survive updates.
- * API keys and tokens are requested for each page and are never saved here.
+ * API keys and tokens are intentionally blank here; save them through Configure
+ * to keep them in this browser profile's userscript-manager storage.
  */
 const ${settings.constantName} = Object.freeze(${JSON.stringify(settings.values, null, 2)});
 `;

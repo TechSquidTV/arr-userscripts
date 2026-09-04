@@ -19,6 +19,12 @@ export interface SonarrConfig extends SonarrConnectionConfig {
 
 export const sonarrConnectionSettingsFields: readonly SettingsField[] = [
   {
+    hint: "Stored locally by your userscript manager and used for Sonarr requests.",
+    key: "sonarrApiKey",
+    label: "Sonarr API key",
+    type: "password",
+  },
+  {
     hint: "The address you use to open Sonarr, including https://.",
     key: "sonarrUrl",
     label: "Sonarr URL",
@@ -26,15 +32,13 @@ export const sonarrConnectionSettingsFields: readonly SettingsField[] = [
   },
 ];
 
-export const sonarrSecretFields = [{ key: "sonarrApiKey", label: "Sonarr API key" }] as const;
-
 export const sonarrServerOptionsLoader: ServerOptionsLoader = {
-  buttonLabel: "Load Sonarr folders and profiles (optional)",
-  credentialFields: sonarrSecretFields,
-  credentialTitle: "Connect to Sonarr",
+  buttonLabel: "Reload Sonarr folders and profiles",
   insertAfterFieldKey: "sonarrUrl",
-  load: async (values, credentials) => {
-    const connection = getSonarrConnectionConfig(values, credentials.sonarrApiKey);
+  isReady: (values) =>
+    (values.sonarrApiKey ?? "").trim().length > 0 && (values.sonarrUrl ?? "").trim().length > 0,
+  load: async (values) => {
+    const connection = getSonarrConnectionConfig(values);
 
     if (connection instanceof Error) {
       throw connection;
@@ -74,10 +78,9 @@ export const sonarrSettingsFields: readonly SettingsField[] = [
 
 export function getSonarrConnectionConfig(
   settings: SettingsValues,
-  apiKey: string | undefined,
 ): SonarrConnectionConfig | Error {
   return getArrConnectionConfig({
-    apiKeyValue: apiKey,
+    apiKeyValue: settings.sonarrApiKey,
     apiKeyVariable: "Sonarr API key",
     serviceName: "Sonarr",
     urlValue: settings.sonarrUrl,
@@ -85,11 +88,8 @@ export function getSonarrConnectionConfig(
   });
 }
 
-export function getSonarrConfig(
-  settings: SettingsValues,
-  apiKey: string | undefined,
-): SonarrConfig | Error {
-  const connectionConfig = getSonarrConnectionConfig(settings, apiKey);
+export function getSonarrConfig(settings: SettingsValues): SonarrConfig | Error {
+  const connectionConfig = getSonarrConnectionConfig(settings);
 
   if (connectionConfig instanceof Error) {
     return connectionConfig;

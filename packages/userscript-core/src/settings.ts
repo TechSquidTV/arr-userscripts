@@ -17,11 +17,6 @@ export interface SettingsField {
   readonly type: "checkbox" | "password" | "text";
 }
 
-export interface SessionSecretField {
-  readonly key: string;
-  readonly label: string;
-}
-
 export interface SettingsSelectOption {
   readonly label: string;
   readonly value: string;
@@ -31,13 +26,9 @@ export type SettingsSelectOptions = Readonly<Record<string, readonly SettingsSel
 
 export interface ServerOptionsLoader {
   readonly buttonLabel: string;
-  readonly credentialFields: readonly SessionSecretField[];
-  readonly credentialTitle: string;
   readonly insertAfterFieldKey: string;
-  readonly load: (
-    values: SettingsValues,
-    credentials: SettingsValues,
-  ) => Promise<SettingsSelectOptions>;
+  readonly isReady: (values: SettingsValues) => boolean;
+  readonly load: (values: SettingsValues) => Promise<SettingsSelectOptions>;
 }
 
 export interface ScriptSettingsOptions {
@@ -269,7 +260,7 @@ function createDialogStatus(): HTMLParagraphElement {
 function showSettingsDialog(options: ScriptSettingsOptions): void {
   const { dialog, form } = createDialogShell(
     options.menuCaption,
-    "Saved values override the editable defaults. API keys and tokens are requested separately for each page and are never stored.",
+    "Saved values override the editable defaults. Your API keys and optional Plex token are stored only by this userscript manager in this browser profile.",
   );
   const status = createDialogStatus();
   const fields = new Map<string, SettingsControl>();
@@ -325,6 +316,10 @@ function showSettingsDialog(options: ScriptSettingsOptions): void {
         input.value = value;
       }
     }
+
+    if (options.serverOptionsLoader?.isReady(values) === true && loadButton !== undefined) {
+      void loadServerOptions(options, fields, status, loadButton);
+    }
   });
 
   cancelButton.addEventListener("click", () => {
@@ -335,7 +330,7 @@ function showSettingsDialog(options: ScriptSettingsOptions): void {
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    void saveSettings(options, fields, status);
+    void saveSettings(options, fields, status, loadButton);
   });
   dialog.addEventListener("close", () => {
     dialog.remove();
@@ -369,33 +364,32 @@ async function loadServerOptions(
   fields: Map<string, SettingsControl>,
   status: HTMLParagraphElement,
   loadButton: HTMLButtonElement,
-): Promise<void> {
+): Promise<boolean> {
   const loader = options.serverOptionsLoader;
 
   if (loader === undefined) {
-    return;
+    return false;
   }
 
   loadButton.disabled = true;
 
   try {
-    const credentials = await requestSessionSecrets(
-      loader.credentialTitle,
-      loader.credentialFields,
-    );
+    setDialogStatus(status, "Contacting the server…", "neutral");
+    const values = getDialogValues(fields, options.fields);
 
-    if (credentials === undefined) {
-      return;
+    if (!loader.isReady(values)) {
+      setDialogStatus(status, "Enter the server URL and API key first.", "error");
+      return false;
     }
 
-    setDialogStatus(status, "Contacting the server…", "neutral");
-    const selectOptions = await loader.load(getDialogValues(fields, options.fields), credentials);
+    const selectOptions = await loader.load(values);
     replaceWithSelectControls(fields, selectOptions);
     setDialogStatus(
       status,
       "Server options loaded. Choose a folder and profile, then save.",
       "success",
     );
+    return true;
   } catch (error) {
     setDialogStatus(
       status,
@@ -405,6 +399,8 @@ async function loadServerOptions(
   } finally {
     loadButton.disabled = false;
   }
+
+  return false;
 }
 
 function replaceWithSelectControls(
@@ -414,12 +410,19 @@ function replaceWithSelectControls(
   for (const [key, choices] of Object.entries(selectOptions)) {
     const currentControl = fields.get(key);
 
-    if (currentControl === undefined || currentControl instanceof HTMLSelectElement) {
+    if (currentControl === undefined) {
+      continue;
+    }
+
+    const currentValue = currentControl.value;
+
+    if (currentControl instanceof HTMLSelectElement) {
+      currentControl.replaceChildren();
+      appendSelectOptions(currentControl, choices, currentValue);
       continue;
     }
 
     const select = document.createElement("select");
-    const currentValue = currentControl.value;
 
     select.name = currentControl.name;
     styleDialogSelect(select);
@@ -465,79 +468,6 @@ function setDialogStatus(
 ): void {
   status.style.color = tone === "error" ? "#b42318" : tone === "success" ? "#067647" : "#4b5563";
   status.textContent = message;
-}
-
-export async function requestSessionSecrets(
-  title: string,
-  fields: readonly SessionSecretField[],
-): Promise<SettingsValues | undefined> {
-  if (fields.length === 0) {
-    return {};
-  }
-
-  if (typeof HTMLDialogElement === "undefined") {
-    return requestSecretsWithPrompt(fields);
-  }
-
-  return new Promise((resolve) => {
-    const { dialog, form } = createDialogShell(
-      title,
-      "These credentials stay only in memory until this page is closed or reloaded. They are never saved by this userscript.",
-    );
-    const inputs = new Map<string, HTMLInputElement>();
-    let settled = false;
-
-    for (const field of fields) {
-      const { container, input } = createDialogField({
-        key: field.key,
-        label: field.label,
-        type: "password",
-      });
-
-      input.autocomplete = "current-password";
-      inputs.set(field.key, input);
-      form.append(container);
-    }
-
-    const controls = createDialogControls();
-    const cancelButton = createDialogButton("Cancel", "secondary");
-    const continueButton = createDialogButton("Continue", "primary");
-    continueButton.type = "submit";
-    controls.append(cancelButton, continueButton);
-    form.append(controls);
-    dialog.append(form);
-    document.body.append(dialog);
-
-    const finish = (values: SettingsValues | undefined): void => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      dialog.close();
-      dialog.remove();
-      resolve(values);
-    };
-
-    cancelButton.addEventListener("click", () => {
-      finish(undefined);
-    });
-    dialog.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      finish(undefined);
-    });
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const values: Record<string, string> = {};
-
-      for (const field of fields) {
-        values[field.key] = inputs.get(field.key)?.value.trim() ?? "";
-      }
-
-      finish(values);
-    });
-    dialog.showModal();
-  });
 }
 
 function createDialogButton(label: string, kind: DialogButtonKind): HTMLButtonElement {
@@ -637,24 +567,6 @@ function mergeStoredSettings(
   return values;
 }
 
-function requestSecretsWithPrompt(
-  fields: readonly SessionSecretField[],
-): SettingsValues | undefined {
-  const values: Record<string, string> = {};
-
-  for (const field of fields) {
-    const value = window.prompt(`${field.label} (used for this page only)`, "");
-
-    if (value === null) {
-      return undefined;
-    }
-
-    values[field.key] = value.trim();
-  }
-
-  return values;
-}
-
 async function resetSettings(storageKey: string, status: HTMLElement): Promise<void> {
   if (!(await gmDeleteValue(storageKey))) {
     status.textContent = "Saved settings are unavailable in this userscript manager.";
@@ -666,21 +578,54 @@ async function resetSettings(storageKey: string, status: HTMLElement): Promise<v
 
 async function saveSettings(
   options: ScriptSettingsOptions,
-  fields: ReadonlyMap<string, SettingsControl>,
-  status: HTMLElement,
+  fields: Map<string, SettingsControl>,
+  status: HTMLParagraphElement,
+  loadButton: HTMLButtonElement | undefined,
 ): Promise<void> {
   const values = getDialogValues(fields, options.fields);
   const validationError = options.validate(values);
 
-  if (validationError !== undefined) {
-    status.textContent = validationError.message;
+  if (validationError === undefined) {
+    await persistSettings(options.storageKey, values, status);
     return;
   }
 
-  if (!(await gmSetValue(options.storageKey, JSON.stringify(values)))) {
+  const loader = options.serverOptionsLoader;
+
+  if (loader !== undefined && loadButton !== undefined && loader.isReady(values)) {
+    const persisted = await persistSettings(options.storageKey, values, status, false);
+
+    if (!persisted) {
+      return;
+    }
+
+    if (await loadServerOptions(options, fields, status, loadButton)) {
+      setDialogStatus(
+        status,
+        "Connection saved. Choose a folder and profile, then save.",
+        "success",
+      );
+    }
+    return;
+  }
+
+  status.textContent = validationError.message;
+}
+
+async function persistSettings(
+  storageKey: string,
+  values: SettingsValues,
+  status: HTMLElement,
+  reload = true,
+): Promise<boolean> {
+  if (!(await gmSetValue(storageKey, JSON.stringify(values)))) {
     status.textContent = "Saved settings are unavailable in this userscript manager.";
-    return;
+    return false;
   }
 
-  window.location.reload();
+  if (reload) {
+    window.location.reload();
+  }
+
+  return true;
 }

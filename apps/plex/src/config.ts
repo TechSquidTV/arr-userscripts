@@ -17,16 +17,17 @@ export const plexSettingsFields: readonly SettingsField[] = [
     label: "Plex server URL",
     type: "text",
   },
+  {
+    hint: "Optional. Store it locally to verify Plex media types and prefer exact identifiers.",
+    key: "plexToken",
+    label: "Plex token",
+    type: "password",
+  },
 ];
 
-export const plexSecretFields = [{ key: "plexToken", label: "Plex token" }] as const;
-
-export function getPlexConfig(
-  settings: SettingsValues,
-  token: string | undefined,
-): Error | PlexConfig | undefined {
+export function getPlexConfig(settings: SettingsValues): Error | PlexConfig | undefined {
   const serverUrl = optionalEnvironmentValue(settings.plexServerUrl);
-  const sessionToken = optionalEnvironmentValue(token);
+  const sessionToken = optionalEnvironmentValue(settings.plexToken);
 
   if (serverUrl === undefined && sessionToken === undefined) {
     return undefined;

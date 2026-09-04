@@ -47,6 +47,8 @@ export default function config({ mode }: ConfigEnv) {
       constantName: "ARR_USERSCRIPTS_PLEX_DEFAULTS",
       values: {
         plexServerUrl: isDistributionBuild ? "" : (environment.ARR_PLEX_SERVER_URL ?? ""),
+        plexToken: "",
+        sonarrApiKey: "",
         sonarrUrl: isDistributionBuild ? "" : (environment.ARR_SONARR_URL ?? ""),
       },
     },

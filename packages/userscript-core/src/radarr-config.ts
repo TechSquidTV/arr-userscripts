@@ -13,6 +13,12 @@ export interface RadarrConfig extends RadarrConnectionConfig {
 
 export const radarrSettingsFields: readonly SettingsField[] = [
   {
+    hint: "Stored locally by your userscript manager and used for Radarr requests.",
+    key: "radarrApiKey",
+    label: "Radarr API key",
+    type: "password",
+  },
+  {
     hint: "The address you use to open Radarr, including https://.",
     key: "radarrUrl",
     label: "Radarr URL",
@@ -34,15 +40,13 @@ export const radarrSettingsFields: readonly SettingsField[] = [
   { key: "radarrSearchForMovie", label: "Search for movie", type: "checkbox" },
 ];
 
-export const radarrSecretFields = [{ key: "radarrApiKey", label: "Radarr API key" }] as const;
-
 export const radarrServerOptionsLoader: ServerOptionsLoader = {
-  buttonLabel: "Load Radarr folders and profiles (optional)",
-  credentialFields: radarrSecretFields,
-  credentialTitle: "Connect to Radarr",
+  buttonLabel: "Reload Radarr folders and profiles",
   insertAfterFieldKey: "radarrUrl",
-  load: async (values, credentials) => {
-    const connection = getRadarrConnectionConfig(values, credentials.radarrApiKey);
+  isReady: (values) =>
+    (values.radarrApiKey ?? "").trim().length > 0 && (values.radarrUrl ?? "").trim().length > 0,
+  load: async (values) => {
+    const connection = getRadarrConnectionConfig(values);
 
     if (connection instanceof Error) {
       throw connection;
@@ -58,10 +62,9 @@ export const radarrServerOptionsLoader: ServerOptionsLoader = {
 
 export function getRadarrConnectionConfig(
   settings: SettingsValues,
-  apiKey: string | undefined,
 ): RadarrConnectionConfig | Error {
   return getArrConnectionConfig({
-    apiKeyValue: apiKey,
+    apiKeyValue: settings.radarrApiKey,
     apiKeyVariable: "Radarr API key",
     serviceName: "Radarr",
     urlValue: settings.radarrUrl,
@@ -69,11 +72,8 @@ export function getRadarrConnectionConfig(
   });
 }
 
-export function getRadarrConfig(
-  settings: SettingsValues,
-  apiKey: string | undefined,
-): RadarrConfig | Error {
-  const connectionConfig = getRadarrConnectionConfig(settings, apiKey);
+export function getRadarrConfig(settings: SettingsValues): RadarrConfig | Error {
+  const connectionConfig = getRadarrConnectionConfig(settings);
 
   if (connectionConfig instanceof Error) {
     return connectionConfig;

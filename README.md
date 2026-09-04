@@ -34,15 +34,12 @@ Choose the command for the service you want to set up:
 
 ![Violentmonkey menu showing the configuration command for the matched IMDb Sonarr and IMDb Radarr scripts](.github/img/violentmonkey-configuration-menu.png)
 
-Enter your Sonarr or Radarr server address, root-folder path, and quality-profile ID,
-then press **Save settings**. The page reloads and is ready to use. This manual route
-works on its own—there is no need to load anything before saving.
-
-For a faster first-time setup, **Load folders and profiles (optional)** asks for your
-API key just for that request, fetches your configured root folders and quality
-profiles, and turns them into readable dropdowns. Pick the folder and profile you
-want, set your monitoring/search choices, then save. The API key used for this helper
-is not saved.
+The first field is your Sonarr or Radarr API key. Enter it along with the server
+address, then press **Save settings**. The script saves that connection in your
+userscript manager and immediately loads your root folders and quality profiles. Pick
+the options you want, set the monitoring/search choices, then press **Save settings**
+again to finish. You can still type a folder path and profile ID yourself; the
+**Reload folders and profiles** button refreshes the dropdowns whenever you need it.
 
 The Plex script can also use your Plex server address to identify items more
 accurately. It does not need a root folder or quality profile because it only opens
@@ -50,11 +47,10 @@ shows that already exist in Sonarr.
 
 ### What happens next
 
-The scripts do not ask for an API key simply because you installed them. They request
-it temporarily when you use the optional server-options helper or, on the manual path,
-when you add a title. A server URL alone is not enough: Sonarr and Radarr also need a
-root folder and quality profile; enter those values manually or use the optional
-helper. Then open the right kind of detail page:
+The scripts do not ask for an API key simply because you installed them. Enter it once
+in that script’s configuration screen. A server URL alone is not enough: Sonarr and
+Radarr also need a root folder and quality profile; choose them from the loaded
+dropdowns or enter those values manually. Then open the right kind of detail page:
 
 - **IMDb → Sonarr** adds an **Add to Sonarr** button on a main TV-series page. It
   intentionally does not appear on movie, episode, list, search, or unclear pages.
@@ -63,23 +59,24 @@ helper. Then open the right kind of detail page:
 - **Plex → Sonarr** adds its Sonarr button on a TV-show detail page, not on movie or
   music pages.
 
-When you click an Add button—or **Sonarr** in Plex—the script opens a password-style
-prompt for that service’s API key. If you configured an optional Plex server address,
-Plex also asks for its token at that point to verify the media type and use its
-external identifiers. If setup is incomplete, the visible **Configure Arr\*** button
-opens this guide; it does not silently hide the control.
+Clicking an Add button—or **Sonarr** in Plex—uses the saved connection without another
+credentials prompt. The Plex screen also accepts an optional Plex server URL and token
+as a pair; saving them lets the script verify the media type and prefer exact external
+identifiers. If setup is incomplete, the visible **Configure Arr\*** button opens this
+guide; it does not silently hide the control.
 
 ## Your API keys stay with you
 
-When a configured script needs to make a request, it asks for its API key in a
-password-style prompt. The key is kept only in that browser tab’s memory and is
-forgotten when the page reloads or the tab closes. It is not included in downloads,
-saved in the userscript settings, or sent to this repository.
+Your Sonarr/Radarr API key—and the optional Plex token—are saved in the userscript
+manager’s own value storage, not in the website’s local storage, cookies, downloads,
+or this repository. This is per script and browser profile, so configure IMDb → Sonarr
+and Plex → Sonarr separately.
 
-Your non-secret choices—such as a server URL and profile—are saved locally by your
-userscript manager. They are separate for each script and browser profile, so it is
-normal to configure IMDb → Sonarr and Plex → Sonarr independently. A password manager
-may fill the key prompt if you use one.
+That storage isolates values from the target website under normal browser extension
+permissions, but it is not a dedicated password vault and its encryption behavior is
+managed by Violentmonkey or Tampermonkey. Use a scoped Arr API key, protect your browser
+profile, and do not store a high-value master password here. **Reset saved settings**
+removes the saved connection, including its API key/token, for that one script.
 
 ## Updates
 
@@ -150,7 +147,8 @@ not credentials; do not put API keys or Plex tokens in the workflow input.
   profile in **Configure Arr\* Userscripts**. The server must be reachable from your
   browser.
 - **I need to start again:** Choose **Reset saved settings** in the configuration
-  dialog. This clears only the local non-secret configuration for that one script.
+  dialog. This clears that script’s local settings, including its saved API key or
+  Plex token.
 
 ## For contributors
 

@@ -11,7 +11,6 @@ export interface ImdbArrIntegration<Config, Item extends ImdbArrItem> {
   readonly buttonId: string;
   readonly createClient: (config: Config) => ImdbArrClient<Config, Item>;
   readonly getConfig: () => Config | Error;
-  readonly getSessionConfig: () => Promise<Config | Error>;
   readonly iconUrl: string;
   readonly isNotFoundError: (error: Error) => boolean;
   readonly mediaKind: Exclude<ImdbTitleKind, "unknown">;
@@ -330,7 +329,7 @@ async function addToArr<Config, Item extends ImdbArrItem>(
 ): Promise<void> {
   button.setStatus("Connecting…", "loading");
 
-  const config = await integration.getSessionConfig();
+  const config = integration.getConfig();
 
   if (config instanceof Error) {
     button.setStatus(config.message, "error");

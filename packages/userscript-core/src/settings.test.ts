@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { gmDeleteValue, gmGetValue, gmRegisterMenuCommand, gmSetValue } from "./gm.ts";
-import { getRadarrConfig } from "./radarr-config.ts";
-import { getSonarrConfig } from "./sonarr-config.ts";
+import { getRadarrConfig, radarrSettingsFields } from "./radarr-config.ts";
+import { getSonarrConfig, sonarrConnectionSettingsFields } from "./sonarr-config.ts";
 import { initializeScriptSettings, loadSettings } from "./settings.ts";
 
 interface GmTestNamespace {
@@ -59,7 +59,7 @@ test("gives saved legacy settings precedence over editable defaults", async () =
   }
 });
 
-test("does not restore obsolete secret keys from persistent storage", async () => {
+test("retains configured credentials in userscript-manager storage", async () => {
   const globals = globalThis as typeof globalThis & GmTestGlobals;
   const originalLegacyGet = globals.GM_getValue;
   const originalModern = globals.GM;
@@ -68,8 +68,12 @@ test("does not restore obsolete secret keys from persistent storage", async () =
 
   try {
     await expect(
-      loadSettings("settings", { url: "https://default.example.test" }),
+      loadSettings("settings", {
+        token: "",
+        url: "https://default.example.test",
+      }),
     ).resolves.toEqual({
+      token: "old-secret",
       url: "https://saved.example.test",
     });
   } finally {
@@ -77,7 +81,7 @@ test("does not restore obsolete secret keys from persistent storage", async () =
   }
 });
 
-test("preserves an empty settings store and migrates only obsolete secret fields", async () => {
+test("preserves an empty settings store and removes obsolete settings fields", async () => {
   const globals = globalThis as typeof globalThis & GmTestGlobals;
   const original = captureGmGlobals(globals);
   const writes: string[] = [];
@@ -89,7 +93,7 @@ test("preserves an empty settings store and migrates only obsolete secret fields
 
   try {
     await initializeScriptSettings({
-      defaults: { url: "https://default.example.test" },
+      defaults: { token: "", url: "https://default.example.test" },
       fields: [],
       menuCaption: "Configure",
       storageKey: "settings",
@@ -97,15 +101,16 @@ test("preserves an empty settings store and migrates only obsolete secret fields
     });
     expect(writes).toEqual([]);
 
-    globals.GM_getValue = () => '{"url":"https://saved.example.test","token":"legacy"}';
+    globals.GM_getValue = () =>
+      '{"url":"https://saved.example.test","token":"saved-token","removed":"legacy"}';
     await initializeScriptSettings({
-      defaults: { url: "https://default.example.test" },
+      defaults: { token: "", url: "https://default.example.test" },
       fields: [],
       menuCaption: "Configure",
       storageKey: "settings",
       validate: () => undefined,
     });
-    expect(writes).toEqual(['{"url":"https://saved.example.test"}']);
+    expect(writes).toEqual(['{"token":"saved-token","url":"https://saved.example.test"}']);
   } finally {
     restoreGmGlobals(globals, original);
   }
@@ -131,59 +136,90 @@ test("uses modern GM storage when the legacy API is unavailable", async () => {
 });
 
 test("validates required settings before an ARR request is made", () => {
-  const sonarr = getSonarrConfig(
-    {
-      sonarrApiKey: "key",
-      sonarrLanguageProfileId: "",
-      sonarrMonitored: "true",
-      sonarrQualityProfileId: "0",
-      sonarrRootFolder: "/tv",
-      sonarrSearchForMissingEpisodes: "true",
-      sonarrUrl: "https://sonarr.example.test",
-    },
-    "key",
-  );
-  const radarr = getRadarrConfig(
-    {
-      radarrApiKey: "key",
-      radarrMonitored: "true",
-      radarrQualityProfileId: "1",
-      radarrRootFolder: "",
-      radarrSearchForMovie: "true",
-      radarrUrl: "https://radarr.example.test",
-    },
-    "key",
-  );
+  const sonarr = getSonarrConfig({
+    sonarrApiKey: "key",
+    sonarrLanguageProfileId: "",
+    sonarrMonitored: "true",
+    sonarrQualityProfileId: "0",
+    sonarrRootFolder: "/tv",
+    sonarrSearchForMissingEpisodes: "true",
+    sonarrUrl: "https://sonarr.example.test",
+  });
+  const radarr = getRadarrConfig({
+    radarrApiKey: "key",
+    radarrMonitored: "true",
+    radarrQualityProfileId: "1",
+    radarrRootFolder: "",
+    radarrSearchForMovie: "true",
+    radarrUrl: "https://radarr.example.test",
+  });
 
   expect(sonarr).toBeInstanceOf(Error);
   expect(radarr).toBeInstanceOf(Error);
 });
 
 test("accepts manually entered ARR settings without loading server options", () => {
-  const sonarr = getSonarrConfig(
-    {
-      sonarrLanguageProfileId: "",
-      sonarrMonitored: "true",
-      sonarrQualityProfileId: "2",
-      sonarrRootFolder: "/media/tv",
-      sonarrSearchForMissingEpisodes: "true",
-      sonarrUrl: "https://sonarr.example.test",
-    },
-    "session-key",
-  );
-  const radarr = getRadarrConfig(
-    {
-      radarrMonitored: "true",
-      radarrQualityProfileId: "3",
-      radarrRootFolder: "/media/movies",
-      radarrSearchForMovie: "true",
-      radarrUrl: "https://radarr.example.test",
-    },
-    "session-key",
-  );
+  const sonarr = getSonarrConfig({
+    sonarrApiKey: "session-key",
+    sonarrLanguageProfileId: "",
+    sonarrMonitored: "true",
+    sonarrQualityProfileId: "2",
+    sonarrRootFolder: "/media/tv",
+    sonarrSearchForMissingEpisodes: "true",
+    sonarrUrl: "https://sonarr.example.test",
+  });
+  const radarr = getRadarrConfig({
+    radarrApiKey: "session-key",
+    radarrMonitored: "true",
+    radarrQualityProfileId: "3",
+    radarrRootFolder: "/media/movies",
+    radarrSearchForMovie: "true",
+    radarrUrl: "https://radarr.example.test",
+  });
 
   expect(sonarr).not.toBeInstanceOf(Error);
   expect(radarr).not.toBeInstanceOf(Error);
+});
+
+test("uses the saved API key for ARR configuration", () => {
+  const sonarr = getSonarrConfig({
+    sonarrApiKey: "saved-sonarr-key",
+    sonarrLanguageProfileId: "",
+    sonarrMonitored: "true",
+    sonarrQualityProfileId: "2",
+    sonarrRootFolder: "/media/tv",
+    sonarrSearchForMissingEpisodes: "true",
+    sonarrUrl: "https://sonarr.example.test",
+  });
+  const radarr = getRadarrConfig({
+    radarrApiKey: "saved-radarr-key",
+    radarrMonitored: "true",
+    radarrQualityProfileId: "3",
+    radarrRootFolder: "/media/movies",
+    radarrSearchForMovie: "true",
+    radarrUrl: "https://radarr.example.test",
+  });
+
+  expect(sonarr).not.toBeInstanceOf(Error);
+  expect(radarr).not.toBeInstanceOf(Error);
+
+  if (sonarr instanceof Error || radarr instanceof Error) {
+    throw new Error("Expected valid Arr configuration.");
+  }
+
+  expect(sonarr.apiKey).toBe("saved-sonarr-key");
+  expect(radarr.apiKey).toBe("saved-radarr-key");
+});
+
+test("places the API key first in the Arr configuration screens", () => {
+  expect(sonarrConnectionSettingsFields[0]).toMatchObject({
+    key: "sonarrApiKey",
+    type: "password",
+  });
+  expect(radarrSettingsFields[0]).toMatchObject({
+    key: "radarrApiKey",
+    type: "password",
+  });
 });
 
 test("uses legacy GM APIs to save, reset, and register settings controls", async () => {

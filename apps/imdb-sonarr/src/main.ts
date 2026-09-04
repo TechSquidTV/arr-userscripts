@@ -2,9 +2,7 @@ import {
   getSonarrConfig,
   initializeScriptSettings,
   mountImdbArrIntegration,
-  requestSessionSecrets,
   serviceIconUrls,
-  sonarrSecretFields,
   sonarrServerOptionsLoader,
   sonarrSettingsFields,
   SonarrClient,
@@ -24,7 +22,7 @@ async function initialize(): Promise<void> {
     serverOptionsLoader: sonarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-sonarr/settings-v1",
     validate: (values) => {
-      const config = getSonarrConfig(values, "session-api-key");
+      const config = getSonarrConfig(values);
       return config instanceof Error ? config : undefined;
     },
   });
@@ -38,14 +36,7 @@ async function initialize(): Promise<void> {
         findExisting: (imdbId) => client.findExistingSeries(imdbId),
       };
     },
-    getConfig: () => getSonarrConfig(settings, "session-api-key"),
-    getSessionConfig: async () => {
-      const sessionSecrets = await requestSessionSecrets(
-        "IMDb Sonarr credentials",
-        sonarrSecretFields,
-      );
-      return getSonarrConfig(settings, sessionSecrets?.sonarrApiKey);
-    },
+    getConfig: () => getSonarrConfig(settings),
     iconUrl: serviceIconUrls.sonarr.light,
     isNotFoundError: (error) => error instanceof SonarrNotFoundError,
     mediaKind: "series",

@@ -2,16 +2,14 @@ import {
   arrUserscriptsConfigurationGuideUrl,
   getSonarrConnectionConfig,
   initializeScriptSettings,
-  requestSessionSecrets,
   serviceIconUrls,
   SonarrClient,
   SonarrNotFoundError,
   sonarrConnectionSettingsFields,
-  sonarrSecretFields,
   type SettingsValues,
   type SonarrSeries,
 } from "@arr-userscripts/core";
-import { getPlexConfig, plexSecretFields, plexSettingsFields } from "./config.ts";
+import { getPlexConfig, plexSettingsFields } from "./config.ts";
 import { metadata } from "./metadata.ts";
 import { getPlexMetadataPath, PlexClient } from "./plex.ts";
 
@@ -23,7 +21,6 @@ const televisionIndicatorSelector = [
 ].join(", ");
 
 let settings: SettingsValues;
-let sessionSecrets: SettingsValues | undefined;
 let plexClient: PlexClient | undefined;
 let reconcileTimerId: number | undefined;
 
@@ -38,16 +35,13 @@ async function initialize(): Promise<void> {
     menuCaption: "Configure Arr* Userscripts: Plex Sonarr",
     storageKey: "arr-userscripts/plex-sonarr/settings-v1",
     validate: (values) => {
-      const sonarrConfig = getSonarrConnectionConfig(values, "session-api-key");
+      const sonarrConfig = getSonarrConnectionConfig(values);
 
       if (sonarrConfig instanceof Error) {
         return sonarrConfig;
       }
 
-      const plexConfig = getPlexConfig(
-        values,
-        (values.plexServerUrl ?? "").trim().length === 0 ? undefined : "session-token",
-      );
+      const plexConfig = getPlexConfig(values);
       return plexConfig instanceof Error ? plexConfig : undefined;
     },
   });
@@ -129,17 +123,13 @@ function findActionTarget(): HTMLElement | undefined {
 }
 
 function getConfigurationError(): Error | undefined {
-  const sonarrConnection = getSonarrConnectionConfig(settings, "session-api-key");
+  const sonarrConnection = getSonarrConnectionConfig(settings);
 
   if (sonarrConnection instanceof Error) {
     return sonarrConnection;
   }
 
-  const requiresPlexToken = (settings.plexServerUrl ?? "").trim().length > 0;
-  const plexConfiguration = getPlexConfig(
-    settings,
-    requiresPlexToken ? "session-token" : undefined,
-  );
+  const plexConfiguration = getPlexConfig(settings);
 
   return plexConfiguration instanceof Error ? plexConfiguration : undefined;
 }
@@ -164,43 +154,12 @@ async function getShowLookupTerms(): Promise<readonly string[] | undefined> {
   }
 }
 
-async function requestDetailSessionSecrets(): Promise<SettingsValues | undefined> {
-  if (sessionSecrets !== undefined) {
-    return sessionSecrets;
-  }
-
-  const sonarrConnection = getSonarrConnectionConfig(settings, "session-api-key");
-  const requiresPlexToken = (settings.plexServerUrl ?? "").trim().length > 0;
-  const plexConfigCheck = getPlexConfig(settings, requiresPlexToken ? "session-token" : undefined);
-
-  const configurationError =
-    sonarrConnection instanceof Error
-      ? sonarrConnection
-      : plexConfigCheck instanceof Error
-        ? plexConfigCheck
-        : undefined;
-
-  if (configurationError !== undefined) {
-    console.warn(`[${metadata.name}] ${configurationError.message}`);
-    return undefined;
-  }
-
-  const requestedSecrets = await requestSessionSecrets("Plex Sonarr credentials", [
-    ...sonarrSecretFields,
-    ...(requiresPlexToken ? plexSecretFields : []),
-  ]);
-
-  if (requestedSecrets === undefined) {
-    return undefined;
-  }
-
-  sessionSecrets = requestedSecrets;
-  const plexConfiguration = getPlexConfig(settings, sessionSecrets.plexToken);
+function initializePlexClient(): void {
+  const plexConfiguration = getPlexConfig(settings);
   plexClient =
     plexConfiguration instanceof Error || plexConfiguration === undefined
       ? undefined
       : new PlexClient(plexConfiguration);
-  return sessionSecrets;
 }
 
 function createSonarrButton(
@@ -274,13 +233,7 @@ async function openInSonarr(
   label.textContent = "Looking up…";
 
   try {
-    const secrets = await requestDetailSessionSecrets();
-
-    if (secrets === undefined) {
-      sonarrWindow.close();
-      label.textContent = "Sonarr";
-      return;
-    }
+    initializePlexClient();
 
     const lookupTerms = await getShowLookupTerms();
 
@@ -290,7 +243,7 @@ async function openInSonarr(
       return;
     }
 
-    const sonarrConnection = getSonarrConnectionConfig(settings, secrets.sonarrApiKey);
+    const sonarrConnection = getSonarrConnectionConfig(settings);
 
     if (sonarrConnection instanceof Error) {
       throw sonarrConnection;

@@ -27,6 +27,7 @@ export default function config({ mode }: ConfigEnv) {
     settings: {
       constantName: "ARR_USERSCRIPTS_IMDB_SONARR_DEFAULTS",
       values: {
+        sonarrApiKey: "",
         sonarrLanguageProfileId: isRelease
           ? ""
           : (environment.ARR_SONARR_LANGUAGE_PROFILE_ID ?? ""),

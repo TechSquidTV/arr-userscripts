@@ -33,10 +33,8 @@ export {
 export {
   initializeScriptSettings,
   loadSettings,
-  requestSessionSecrets,
   type ServerOptionsLoader,
   type ScriptSettingsOptions,
-  type SessionSecretField,
   type SettingsField,
   type SettingsSelectOption,
   type SettingsSelectOptions,
@@ -47,7 +45,6 @@ export {
   getSonarrConfig,
   getSonarrConnectionConfig,
   sonarrConnectionSettingsFields,
-  sonarrSecretFields,
   sonarrServerOptionsLoader,
   sonarrSettingsFields,
   type SonarrConfig,
@@ -57,7 +54,6 @@ export { SonarrClient, SonarrNotFoundError, type SonarrSeries } from "./sonarr.t
 export {
   getRadarrConfig,
   getRadarrConnectionConfig,
-  radarrSecretFields,
   radarrServerOptionsLoader,
   radarrSettingsFields,
   type RadarrConfig,
