@@ -41,6 +41,8 @@ const imdbPrimaryActionSelector =
   '[data-testid="tm-box-wl-button"], [data-testid^="watched-button-tt"]';
 const imdbFallbackDelayMs = 5_000;
 const imdbReconcileDelayMs = 50;
+const configurationGuideUrl =
+  "https://github.com/techsquidtv/arr-userscripts#install-in-three-steps";
 
 export interface ImdbTitleSignals {
   readonly hasEpisodeGuide: boolean;
@@ -194,10 +196,11 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
     const config = integration.getConfig();
 
     if (config instanceof Error) {
-      button.setStatus(`Configure ${integration.serviceName}`, "error");
-      button.element.disabled = true;
-      button.element.style.cursor = "default";
+      button.setStatus(`Configure ${integration.serviceName}`, "default");
       button.element.title = config.message;
+      button.element.addEventListener("click", () => {
+        window.open(configurationGuideUrl, "_blank", "noopener,noreferrer");
+      });
       return;
     }
 
