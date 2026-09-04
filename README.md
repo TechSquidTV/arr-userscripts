@@ -32,7 +32,7 @@ it appears for TV shows, not music or movies.
 In Violentmonkey, the configuration command appears underneath each matched script.
 Choose the command for the service you want to set up:
 
-![Violentmonkey menu showing the configuration command for the matched IMDb Sonarr and IMDb Radarr scripts](docs/assets/violentmonkey-configuration-menu.png)
+![Violentmonkey menu showing the configuration command for the matched IMDb Sonarr and IMDb Radarr scripts](.github/img/violentmonkey-configuration-menu.png)
 
 Enter your Sonarr or Radarr server address, then choose **Load server options**. The
 script asks for the API key only for that one request, fetches your configured root
