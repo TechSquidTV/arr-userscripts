@@ -37,8 +37,8 @@ interface ImdbArrButton {
   setStatus(label: string, state: ImdbArrButtonState): void;
 }
 
-const imdbPrimaryActionSelector =
-  '[data-testid="tm-box-wl-button"], [data-testid^="watched-button-tt"]';
+const imdbLegacyActionSelector = '[data-testid^="watched-button-tt"]';
+const imdbWatchlistSelector = '[data-testid="tm-box-wl-button"]';
 const imdbFallbackDelayMs = 5_000;
 const imdbReconcileDelayMs = 50;
 const configurationGuideUrl =
@@ -85,18 +85,20 @@ export function getImdbTitleKind(document: Document): ImdbTitleKind {
 }
 
 function findImdbActionContainer(allowTitleFallback: boolean): HTMLElement | undefined {
-  const actionAnchor = document.querySelector<HTMLElement>(imdbPrimaryActionSelector);
+  const watchlistButton = document.querySelector<HTMLElement>(imdbWatchlistSelector);
 
-  if (actionAnchor !== null) {
-    if (actionAnchor.matches('[data-testid="tm-box-wl-button"]')) {
-      const actionContainer = actionAnchor.parentElement?.parentElement;
+  if (watchlistButton !== null) {
+    const actionContainer = watchlistButton.parentElement?.parentElement;
 
-      if (actionContainer instanceof HTMLElement) {
-        return actionContainer;
-      }
+    if (actionContainer instanceof HTMLElement) {
+      return actionContainer;
     }
+  }
 
-    return actionAnchor;
+  const legacyAction = document.querySelector<HTMLElement>(imdbLegacyActionSelector);
+
+  if (legacyAction !== null) {
+    return legacyAction;
   }
 
   if (allowTitleFallback) {
@@ -174,15 +176,22 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
       return;
     }
 
+    const actionContainer = findImdbActionContainer(fallbackTimerId === undefined);
+
     if (existingButton !== null) {
       if (existingButton.dataset.imdbTitleId === imdbId) {
+        if (
+          actionContainer !== undefined &&
+          existingButton.previousElementSibling !== actionContainer
+        ) {
+          actionContainer.insertAdjacentElement("afterend", existingButton);
+        }
+
         return;
       }
 
       existingButton.remove();
     }
-
-    const actionContainer = findImdbActionContainer(fallbackTimerId === undefined);
 
     if (actionContainer === undefined) {
       return;
@@ -269,6 +278,7 @@ function createImdbArrButton(serviceName: string, iconUrl: string): ImdbArrButto
   element.className =
     "ipc-btn ipc-btn--full-width ipc-btn--left-align-content ipc-btn--large-height ipc-btn--core-baseAlt ipc-btn--theme-baseAlt ipc-btn--button-radius ipc-btn--on-accent2 ipc-secondary-button";
   element.style.marginBlock = "8px";
+  element.style.color = "#ffffff";
   icon.alt = "";
   icon.height = 20;
   icon.src = iconUrl;
