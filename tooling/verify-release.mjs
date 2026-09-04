@@ -39,7 +39,7 @@ for (const [index, asset] of assets.entries()) {
   assertIncludes(source, `// @downloadURL ${url}`, asset.name);
   assertIncludes(source, `// @updateURL ${url}`, asset.name);
   assertIncludes(source, "// @connect *", asset.name);
-  assertIncludes(source, "* ARR Userscripts configuration defaults", asset.name);
+  assertIncludes(source, "* Arr* Userscripts configuration defaults", asset.name);
   assertIncludes(source, `const ${asset.settings} = Object.freeze({`, asset.name);
 
   const defaults = extractDefaultsBlock(source, asset.settings, asset.name);

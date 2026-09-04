@@ -20,7 +20,7 @@ async function initialize(): Promise<void> {
   const settings = await initializeScriptSettings({
     defaults: ARR_USERSCRIPTS_IMDB_DEFAULTS,
     fields: sonarrSettingsFields,
-    menuCaption: "Configure ARR Userscripts: IMDb Sonarr",
+    menuCaption: "Configure Arr* Userscripts: IMDb Sonarr",
     serverOptionsLoader: sonarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-sonarr/settings-v1",
     validate: (values) => {

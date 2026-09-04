@@ -187,7 +187,7 @@ export function formatUserscriptPreamble(
 
   return `${formatUserscriptBanner(metadata)}
 /*
- * ARR Userscripts configuration defaults
+ * Arr* Userscripts configuration defaults
  * Edit these values before installation if preferred. Values saved through the
  * userscript manager's Configure menu override these defaults and survive updates.
  * API keys and tokens are requested for each page and are never saved here.

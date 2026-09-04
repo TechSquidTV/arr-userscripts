@@ -1,4 +1,4 @@
-# ARR Userscripts
+# Arr\* Userscripts
 
 Small browser add-ons that let you send a title you are viewing to your own Sonarr or
 Radarr library. They run in a userscript manager such as
@@ -27,7 +27,7 @@ it appears for TV shows, not music or movies.
 2. Choose an install link above and approve the userscript-manager installation
    screen.
 3. Visit a matching IMDb or Plex page, open your userscript manager’s menu, and
-   choose **Configure ARR Userscripts**.
+   choose **Configure Arr\* Userscripts**.
 
 In Violentmonkey, the configuration command appears underneath each matched script.
 Choose the command for the service you want to set up:
@@ -61,7 +61,7 @@ the right kind of detail page:
 
 When a button is ready to make its first request, the script opens a password-style
 prompt for that service’s API key. If you do not see a button, open the userscript
-manager menu and check **Configure ARR Userscripts** first; an incomplete setting is
+manager menu and check **Configure Arr\* Userscripts** first; an incomplete setting is
 the most common reason.
 
 ## Your API keys stay with you
@@ -112,7 +112,7 @@ automatic updates for that customized copy.
 - **No button appears in Plex:** Open a TV-show detail page. The script does not run
   for music or movies.
 - **The request fails:** Check the server URL, API key, root folder, and quality
-  profile in **Configure ARR Userscripts**. The server must be reachable from your
+  profile in **Configure Arr\* Userscripts**. The server must be reachable from your
   browser.
 - **I need to start again:** Choose **Reset saved settings** in the configuration
   dialog. This clears only the local non-secret configuration for that one script.

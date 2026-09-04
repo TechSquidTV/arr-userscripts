@@ -1,7 +1,7 @@
 import type { UserscriptMetadata } from "../../../tooling/userscript.ts";
 
 export const metadata: UserscriptMetadata = {
-  name: "ARR Userscripts: IMDb Radarr",
+  name: "Arr* Userscripts: IMDb Radarr",
   author: "@techsquidtv",
   namespace: "https://github.com/techsquidtv/arr-userscripts",
   version: "0.1.0",

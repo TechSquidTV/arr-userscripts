@@ -20,7 +20,7 @@ async function initialize(): Promise<void> {
   const settings = await initializeScriptSettings({
     defaults: ARR_USERSCRIPTS_IMDB_RADARR_DEFAULTS,
     fields: radarrSettingsFields,
-    menuCaption: "Configure ARR Userscripts: IMDb Radarr",
+    menuCaption: "Configure Arr* Userscripts: IMDb Radarr",
     serverOptionsLoader: radarrServerOptionsLoader,
     storageKey: "arr-userscripts/imdb-radarr/settings-v1",
     validate: (values) => {

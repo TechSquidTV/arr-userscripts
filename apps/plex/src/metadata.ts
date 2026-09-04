@@ -1,7 +1,7 @@
 import type { UserscriptMetadata } from "../../../tooling/userscript.ts";
 
 export const metadata: UserscriptMetadata = {
-  name: "ARR Userscripts: Plex",
+  name: "Arr* Userscripts: Plex",
   author: "@techsquidtv",
   namespace: "https://github.com/techsquidtv/arr-userscripts",
   version: "0.1.0",

@@ -37,7 +37,7 @@ async function initialize(): Promise<void> {
   settings = await initializeScriptSettings({
     defaults: ARR_USERSCRIPTS_PLEX_DEFAULTS,
     fields: [...sonarrConnectionSettingsFields, ...plexSettingsFields],
-    menuCaption: "Configure ARR Userscripts: Plex Sonarr",
+    menuCaption: "Configure Arr* Userscripts: Plex Sonarr",
     storageKey: "arr-userscripts/plex-sonarr/settings-v1",
     validate: (values) => {
       const sonarrConfig = getSonarrConnectionConfig(values, "session-api-key");

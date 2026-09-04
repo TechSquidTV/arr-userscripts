@@ -102,7 +102,9 @@ test("places editable defaults immediately after metadata", () => {
     },
   );
 
-  expect(preamble).toContain("// ==/UserScript==\n\n/*\n * ARR Userscripts configuration defaults");
+  expect(preamble).toContain(
+    "// ==/UserScript==\n\n/*\n * Arr* Userscripts configuration defaults",
+  );
   expect(preamble).toContain('const EXAMPLE_DEFAULTS = Object.freeze({\n  "apiKey": "",');
 });
 
