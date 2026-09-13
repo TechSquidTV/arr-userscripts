@@ -4,7 +4,7 @@ export const metadata: UserscriptMetadata = {
   name: "Arr* Userscripts: Plex",
   author: "@techsquidtv",
   namespace: "https://github.com/techsquidtv/arr-userscripts",
-  version: "0.2.0",
+  version: "0.3.0",
   description: "Open Plex television shows in Sonarr.",
   matches: ["https://app.plex.tv/*"],
   grants: [
