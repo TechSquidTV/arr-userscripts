@@ -54,9 +54,9 @@ in that script’s configuration screen. A server URL alone is not enough: Sonar
 Radarr also need a root folder and quality profile; choose them from the loaded
 dropdowns or enter those values manually. Then open the right kind of detail page:
 
-- **IMDb → Sonarr** adds an **Add to Sonarr** button on a main TV-series page. It
+- **IMDb → Sonarr** adds a split button on a main TV-series page. It
   intentionally does not appear on movie, episode, list, search, or unclear pages.
-- **IMDb → Radarr** adds an **Add to Radarr** button on a main movie page. It does
+- **IMDb → Radarr** adds a split button on a main movie page. It does
   not appear on TV-series or episode pages.
 - **Plex → Sonarr** adds its Sonarr button on a TV-show detail page, not on movie or
   music pages.
@@ -66,6 +66,18 @@ credentials prompt. The Plex screen also accepts an optional Plex server URL and
 as a pair; saving them lets the script verify the media type and prefer exact external
 identifiers. If setup is incomplete, the visible **Configure Arr\*** button opens this
 guide; it does not silently hide the control.
+
+The IMDb buttons check your library when the page loads. Existing titles turn
+green and show whether they are monitored, without a checkmark. Otherwise, choose
+**Add to Sonarr** or **Add to Radarr**. The arrow opens **Open in Sonarr/Radarr** and
+**Refresh library status**. The link opens the existing title directly, or an
+IMDb-ID search if it has not been found in your library. Failed checks show
+**Retry Sonarr/Radarr check** and never proceed to add a title.
+
+**Behavior change:** IMDb now makes an authenticated, read-only library request
+automatically on each title page. Adding titles and manually refreshing status
+require a real user click; `.click()` and `dispatchEvent()` cannot
+trigger those requests.
 
 ## Your API keys stay with you
 
@@ -148,6 +160,11 @@ not credentials; do not put API keys or Plex tokens in the workflow input.
 - **The request fails:** Check the server URL, API key, root folder, and quality
   profile in **Configure Arr\* Userscripts**. The server must be reachable from your
   browser.
+- **No requests appear in IMDb's Network tab:** Requests use the userscript
+  manager's `GM_xmlhttpRequest`, so they may appear in the extension's developer
+  tools instead. Filter the page console for **Arr\* Userscripts** to see library
+  checks, results, and failures. Hover over a failed button for the error details,
+  or use the dropdown to open the title in Sonarr/Radarr and refresh its status.
 - **I need to start again:** Choose **Reset saved settings** in the configuration
   dialog. This clears that script’s local settings, including its saved API key or
   Plex token.

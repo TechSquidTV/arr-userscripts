@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { afterEach, expect, test, vi } from "vite-plus/test";
 import { loadArrServerOptions } from "./arr.ts";
 import type { GmXmlHttpRequestDetails, GmXmlHttpResponse } from "./gm.ts";
 
@@ -10,6 +10,51 @@ interface ArrTestGlobals {
   GM?: { readonly xmlHttpRequest?: () => never };
   GM_xmlhttpRequest?: (details: GmXmlHttpRequestDetails) => GmRequestController;
 }
+
+afterEach(() => vi.unstubAllGlobals());
+
+test.each([
+  {
+    responseText: "<html><body>Proxy failure: private internal details</body></html>",
+    expected: "returned 502 Bad Gateway.",
+    omitted: "private internal details",
+  },
+  {
+    responseText: JSON.stringify({
+      message: "Rejected API key temporary-key.",
+      stackTrace: "private internal details",
+    }),
+    expected: "Rejected API key [redacted].",
+    omitted: "temporary-key",
+  },
+  {
+    responseText: JSON.stringify([
+      { errorMessage: "Invalid profile." },
+      { errorMessage: "Invalid profile." },
+      { errorMessage: "Invalid folder." },
+    ]),
+    expected: "Invalid profile. Invalid folder.",
+    omitted: "Invalid profile. Invalid profile.",
+  },
+])(
+  "keeps useful HTTP error details without dumping response bodies ($expected)",
+  async ({ responseText, expected, omitted }) => {
+    vi.stubGlobal("GM_xmlhttpRequest", (details: GmXmlHttpRequestDetails) => {
+      details.onload?.({ status: 502, statusText: "Bad Gateway", responseText });
+      return { abort() {} };
+    });
+    const result = loadArrServerOptions({
+      apiKey: "temporary-key",
+      url: "https://arr.example.test",
+    });
+    await expect(result).rejects.toThrow(expected);
+    await expect(result).rejects.toThrow(
+      "GET https://arr.example.test/api/v3/rootfolder returned 502 Bad Gateway.",
+    );
+    await expect(result).rejects.not.toThrow(omitted);
+    await expect(result).rejects.not.toThrow("private internal details");
+  },
+);
 
 test("loads readable root-folder and quality-profile choices from an ARR server", async () => {
   const globals = globalThis as typeof globalThis & ArrTestGlobals;

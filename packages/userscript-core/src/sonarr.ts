@@ -49,7 +49,8 @@ export class SonarrClient extends ArrApiClient {
       throw new Error("Sonarr returned an invalid series library.");
     }
 
-    return library.map(parseSonarrSeries).find((series) => series.imdbId === imdbId);
+    const series = library.find((entry) => isArrJsonObject(entry) && entry.imdbId === imdbId);
+    return series === undefined ? undefined : parseSonarrSeries(series);
   }
 
   public async findSeriesByLookupTerm(term: string): Promise<SonarrSeries> {

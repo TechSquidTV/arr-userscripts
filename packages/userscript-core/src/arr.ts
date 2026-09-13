@@ -42,6 +42,10 @@ export class ArrApiClient {
     private readonly lookupPath: string,
   ) {}
 
+  public searchUrl(imdbId: string): string {
+    return `${this.connection.url}/add/new?term=${encodeURIComponent(`imdb:${imdbId}`)}`;
+  }
+
   protected async lookupEntry(term: string): Promise<ArrJsonObject> {
     const cachedRequest = this.lookupRequests.get(term);
 
@@ -131,7 +135,14 @@ async function requestArrJson(
   });
 
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(`${connection.url} returned ${response.status} ${response.statusText}.`.trim());
+    const status = `${response.status} ${response.statusText}`.trim();
+    const detail = parseArrErrorDetail(response.responseText)?.replaceAll(
+      connection.apiKey,
+      "[redacted]",
+    );
+    throw new Error(
+      `${request.method ?? "GET"} ${connection.url}${path} returned ${status}.${detail === undefined ? "" : ` ${detail}`}`,
+    );
   }
 
   try {
@@ -139,6 +150,30 @@ async function requestArrJson(
   } catch {
     throw new Error(`${connection.url} returned invalid JSON for ${path}.`);
   }
+}
+
+function parseArrErrorDetail(responseText: string): string | undefined {
+  let value: ArrJsonValue;
+
+  try {
+    value = JSON.parse(responseText) as ArrJsonValue;
+  } catch {
+    return undefined;
+  }
+
+  // Arr returns validation arrays or an error object. Keep the useful messages,
+  // without dumping HTML proxy pages, stack traces, or complete response bodies.
+  const entries = Array.isArray(value) ? value : [value];
+  const messages = entries.flatMap((entry) => {
+    if (!isArrJsonObject(entry)) {
+      return [];
+    }
+
+    const message = typeof entry.errorMessage === "string" ? entry.errorMessage : entry.message;
+    return typeof message === "string" && message.trim() !== "" ? [message.trim()] : [];
+  });
+
+  return [...new Set(messages)].join(" ").slice(0, 2_000) || undefined;
 }
 
 function parseQualityProfiles(value: ArrJsonValue): readonly ArrServerOption[] {

@@ -34,6 +34,8 @@ async function initialize(): Promise<void> {
       return {
         add: (imdbId, currentConfig) => client.addSeries(imdbId, currentConfig),
         findExisting: (imdbId) => client.findExistingSeries(imdbId),
+        getUrl: (imdbId, series) =>
+          series === undefined ? client.searchUrl(imdbId) : client.seriesUrl(series),
       };
     },
     getConfig: () => getSonarrConfig(settings),

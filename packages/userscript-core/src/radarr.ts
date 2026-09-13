@@ -4,6 +4,7 @@ import type { RadarrConfig, RadarrConnectionConfig } from "./radarr-config.ts";
 export interface RadarrMovie {
   readonly imdbId: string | undefined;
   readonly monitored: boolean;
+  readonly titleSlug: string | undefined;
 }
 
 export class RadarrNotFoundError extends Error {
@@ -45,7 +46,16 @@ export class RadarrClient extends ArrApiClient {
       throw new Error("Radarr returned an invalid movie library.");
     }
 
-    return library.map(parseRadarrMovie).find((movie) => movie.imdbId === imdbId);
+    const movie = library.find((entry) => isArrJsonObject(entry) && entry.imdbId === imdbId);
+    return movie === undefined ? undefined : parseRadarrMovie(movie);
+  }
+
+  public movieUrl(movie: RadarrMovie): string {
+    if (movie.titleSlug === undefined) {
+      throw new Error("Radarr did not provide a movie URL.");
+    }
+
+    return `${this.connection.url}/movie/${encodeURIComponent(movie.titleSlug)}`;
   }
 }
 
@@ -56,10 +66,15 @@ function parseRadarrMovie(value: ArrJsonValue): RadarrMovie {
 
   const imdbId = value.imdbId;
   const monitored = value.monitored;
+  const titleSlug = value.titleSlug;
 
-  if ((imdbId !== undefined && typeof imdbId !== "string") || typeof monitored !== "boolean") {
+  if (
+    (imdbId !== undefined && typeof imdbId !== "string") ||
+    typeof monitored !== "boolean" ||
+    (titleSlug !== undefined && typeof titleSlug !== "string")
+  ) {
     throw new Error("Radarr returned an invalid movie.");
   }
 
-  return { imdbId, monitored };
+  return { imdbId, monitored, titleSlug };
 }

@@ -34,6 +34,8 @@ async function initialize(): Promise<void> {
       return {
         add: (imdbId, currentConfig) => client.addMovie(imdbId, currentConfig),
         findExisting: (imdbId) => client.findExistingMovie(imdbId),
+        getUrl: (imdbId, movie) =>
+          movie === undefined ? client.searchUrl(imdbId) : client.movieUrl(movie),
       };
     },
     getConfig: () => getRadarrConfig(settings),

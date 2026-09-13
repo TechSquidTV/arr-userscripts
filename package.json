@@ -12,6 +12,7 @@
     "test": "vp test"
   },
   "devDependencies": {
+    "happy-dom": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },

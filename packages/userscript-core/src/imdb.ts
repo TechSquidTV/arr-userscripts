@@ -1,10 +1,12 @@
 import { arrUserscriptsConfigurationGuideUrl } from "./documentation.ts";
+import { createImdbArrButton, type ImdbArrButton } from "./imdb-button.ts";
 
 export type ImdbTitleKind = "movie" | "series" | "unknown";
 
 export interface ImdbArrClient<Config, Item extends ImdbArrItem> {
   add(imdbId: string, config: Config): Promise<Item>;
   findExisting(imdbId: string): Promise<Item | undefined>;
+  getUrl(imdbId: string, item?: Item): string;
 }
 
 export interface ImdbArrIntegration<Config, Item extends ImdbArrItem> {
@@ -29,13 +31,6 @@ interface JsonLdArray extends ReadonlyArray<JsonLdValue> {}
 
 interface JsonLdObject {
   readonly [key: string]: JsonLdValue;
-}
-
-type ImdbArrButtonState = "default" | "error" | "loading" | "success";
-
-interface ImdbArrButton {
-  readonly element: HTMLButtonElement;
-  setStatus(label: string, state: ImdbArrButtonState): void;
 }
 
 const imdbLegacyActionSelector = '[data-testid^="watched-button-tt"]';
@@ -140,6 +135,7 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
 ): void {
   let fallbackTimerId: number | undefined;
   let lastImdbId: string | undefined;
+  let mountedButton: ImdbArrButton | undefined;
   let reconcileTimerId: number | undefined;
 
   const scheduleReconcile = (): void => {
@@ -155,10 +151,10 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
 
   const reconcile = (): void => {
     const imdbId = getImdbTitleId(window.location.pathname);
-    const existingButton = document.getElementById(integration.buttonId);
-
     if (imdbId !== lastImdbId) {
       lastImdbId = imdbId;
+      mountedButton?.remove();
+      mountedButton = undefined;
 
       if (fallbackTimerId !== undefined) {
         window.clearTimeout(fallbackTimerId);
@@ -171,35 +167,36 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
     }
 
     if (imdbId === undefined || getImdbTitleKind(document) !== integration.mediaKind) {
-      existingButton?.remove();
+      mountedButton?.remove();
+      mountedButton = undefined;
       return;
     }
 
     const actionContainer = findImdbActionContainer(fallbackTimerId === undefined);
 
-    if (existingButton !== null) {
-      if (existingButton.dataset.imdbTitleId === imdbId) {
-        if (
-          actionContainer !== undefined &&
-          existingButton.previousElementSibling !== actionContainer
-        ) {
-          actionContainer.insertAdjacentElement("afterend", existingButton);
-        }
-
-        return;
+    if (mountedButton !== undefined) {
+      if (
+        actionContainer !== undefined &&
+        mountedButton.container.previousElementSibling !== actionContainer
+      ) {
+        actionContainer.insertAdjacentElement("afterend", mountedButton.container);
       }
 
-      existingButton.remove();
+      return;
     }
 
     if (actionContainer === undefined) {
       return;
     }
 
-    const button = createImdbArrButton(integration.serviceName, integration.iconUrl);
+    const button = createImdbArrButton(
+      integration.buttonId,
+      integration.serviceName,
+      integration.iconUrl,
+    );
+    mountedButton = button;
     button.element.dataset.imdbTitleId = imdbId;
-    button.element.id = integration.buttonId;
-    actionContainer.insertAdjacentElement("afterend", button.element);
+    actionContainer.insertAdjacentElement("afterend", button.container);
 
     const config = integration.getConfig();
 
@@ -212,9 +209,7 @@ export function mountImdbArrIntegration<Config, Item extends ImdbArrItem>(
       return;
     }
 
-    button.element.addEventListener("click", () => {
-      void addToArr(integration, imdbId, button);
-    });
+    bindImdbArrActions(integration, config, imdbId, button);
   };
 
   const observer = new MutationObserver(scheduleReconcile);
@@ -268,106 +263,81 @@ function isJsonLdObject(value: JsonLdValue): value is JsonLdObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function createImdbArrButton(serviceName: string, iconUrl: string): ImdbArrButton {
-  const element = document.createElement("button");
-  const icon = document.createElement("img");
-  const label = document.createElement("span");
-
-  element.type = "button";
-  element.className =
-    "ipc-btn ipc-btn--full-width ipc-btn--left-align-content ipc-btn--large-height ipc-btn--core-baseAlt ipc-btn--theme-baseAlt ipc-btn--button-radius ipc-btn--on-accent2 ipc-secondary-button";
-  element.style.marginBlock = "8px";
-  element.style.color = "#ffffff";
-  icon.alt = "";
-  icon.height = 20;
-  icon.src = iconUrl;
-  icon.width = 20;
-  icon.style.marginRight = "8px";
-  label.className = "ipc-btn__text";
-  element.append(icon, label);
-
-  const setStatus = (nextLabel: string, state: ImdbArrButtonState): void => {
-    label.textContent = nextLabel;
-    element.disabled = state === "loading" || state === "success";
-    element.style.backgroundColor = buttonColorByState[state];
-    element.style.cursor = element.disabled ? "default" : "pointer";
-  };
-
-  setStatus(`Add to ${serviceName}`, "default");
-  return { element, setStatus };
-}
-
-async function updateExistingStatus<Config, Item extends ImdbArrItem>(
+function bindImdbArrActions<Config, Item extends ImdbArrItem>(
   integration: ImdbArrIntegration<Config, Item>,
-  client: ImdbArrClient<Config, Item>,
+  config: Config,
   imdbId: string,
   button: ImdbArrButton,
-): Promise<boolean> {
-  try {
-    const existingItem = await client.findExisting(imdbId);
-
-    if (existingItem !== undefined) {
-      button.setStatus(
-        existingItem.monitored
-          ? `Monitored in ${integration.serviceName}`
-          : `In ${integration.serviceName} (unmonitored)`,
-        "success",
-      );
-      return true;
-    }
-  } catch (error) {
-    console.warn(`[${integration.scriptName}] Could not read the library.`, error);
-  }
-
-  return false;
-}
-
-async function addToArr<Config, Item extends ImdbArrItem>(
-  integration: ImdbArrIntegration<Config, Item>,
-  imdbId: string,
-  button: ImdbArrButton,
-): Promise<void> {
-  button.setStatus("Connecting…", "loading");
-
-  const config = integration.getConfig();
-
-  if (config instanceof Error) {
-    button.setStatus(config.message, "error");
-    return;
-  }
-
+): void {
   const client = integration.createClient(config);
+  let busy = false;
+  let canAdd = false;
 
-  if (await updateExistingStatus(integration, client, imdbId, button)) {
-    return;
-  }
-
-  button.setStatus("Looking up…", "loading");
-
-  try {
-    const item = await client.add(imdbId, config);
-    button.setStatus(
-      item.monitored
-        ? `Monitored in ${integration.serviceName}`
-        : `In ${integration.serviceName} (unmonitored)`,
-      "success",
-    );
-  } catch (error) {
-    if (error instanceof Error && integration.isNotFoundError(error)) {
-      button.setStatus(`Not found in ${integration.serviceName}`, "error");
+  const update = async (shouldAdd: boolean): Promise<void> => {
+    if (busy) {
       return;
     }
 
-    button.setStatus(
-      error instanceof Error ? error.message : `Unable to add to ${integration.serviceName}`,
-      "error",
-    );
-  }
-}
+    busy = true;
+    canAdd = false;
+    let adding = false;
+    button.setStatus(`Checking ${integration.serviceName}…`, "loading");
+    console.info(`[${integration.scriptName}] Checking library for ${imdbId}.`);
 
-const buttonColorByState: Record<ImdbArrButtonState, string> = {
-  default: "#0084ff",
-  error: "#dc2626",
-  loading: "#0084ff",
-  success: "#16a34a",
-};
+    try {
+      let item = await client.findExisting(imdbId);
+      console.info(
+        `[${integration.scriptName}] ${imdbId}: ${item === undefined ? "not in library" : item.monitored ? "monitored" : "in library, unmonitored"}.`,
+      );
+
+      if (item === undefined && shouldAdd) {
+        adding = true;
+        button.setStatus(`Adding to ${integration.serviceName}…`, "loading");
+        item = await client.add(imdbId, config);
+        console.info(`[${integration.scriptName}] Added ${imdbId}.`);
+      }
+
+      button.setUrl(client.getUrl(imdbId, item));
+      canAdd = item === undefined;
+      button.setStatus(
+        item === undefined
+          ? `Add to ${integration.serviceName}`
+          : item.monitored
+            ? `Monitored in ${integration.serviceName}`
+            : `In ${integration.serviceName} (unmonitored)`,
+        item === undefined ? "default" : "success",
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "The request failed.";
+      console.warn(
+        `[${integration.scriptName}] Could not ${adding ? "add title" : "read library"} for ${imdbId}.`,
+        error,
+      );
+      button.setStatus(
+        adding
+          ? error instanceof Error && integration.isNotFoundError(error)
+            ? `Not found in ${integration.serviceName}`
+            : `Unable to add to ${integration.serviceName}`
+          : `Retry ${integration.serviceName} check`,
+        "error",
+        detail,
+      );
+    } finally {
+      busy = false;
+    }
+  };
+
+  button.element.addEventListener("click", (event) => {
+    // Reads run on mount; privileged mutations still require a real user click.
+    if (event.isTrusted && !button.element.disabled) {
+      void update(canAdd);
+    }
+  });
+  button.refresh.addEventListener("click", (event) => {
+    if (event.isTrusted && !button.refresh.disabled) {
+      void update(false);
+    }
+  });
+  button.setUrl(client.getUrl(imdbId));
+  void update(false);
+}
